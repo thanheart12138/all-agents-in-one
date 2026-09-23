@@ -1,7 +1,7 @@
 {
   "name": "all-agents-in-one",
   "productName": "All Agents in One",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "A project-oriented terminal workspace for CLI agents.",
   "author": "changsu",

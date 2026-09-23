@@ -91,6 +91,10 @@ export function TerminalView({ terminalId, active, status, error, itermTheme }: 
     const fitAddon = new FitAddon()
     terminal.loadAddon(fitAddon)
     terminal.open(containerRef.current)
+    // 给 IME 组合框样式提供跟随主题的 CSS 变量（见 styles.css .composition-view）
+    const appliedTheme = buildTheme(itermTheme)
+    containerRef.current.style.setProperty('--terminal-bg', appliedTheme.background)
+    containerRef.current.style.setProperty('--terminal-fg', appliedTheme.foreground)
     terminal.onData((data) => window.terminalApi.write(terminalId, data))
     writers.set(terminalId, (data) => terminal.write(data))
     clearers.set(terminalId, () => terminal.clear())

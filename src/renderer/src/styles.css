@@ -105,6 +105,15 @@ button { color: inherit; font: inherit; }
 .terminal-view { display: none; position: absolute; inset: 0; padding: 14px 10px 10px 16px; }
 .terminal-view.active { display: block; }
 .terminal-view .xterm { height: 100%; }
+/* IME 组合文本（拼音输入中）：默认是纯黑不透明白字块，盖在字上像 bug；
+   改成跟随终端主题底色 + 虚线下划线，视觉上等同 iTerm 的内联标记文本 */
+.terminal-view .xterm .composition-view {
+  background: var(--terminal-bg, #1e1e2e) !important;
+  color: var(--terminal-fg, #dfe3f3) !important;
+  border-bottom: 1px dashed #7d839b;
+  box-shadow: 0 0 0 1px var(--terminal-bg, #1e1e2e);
+  z-index: 3;
+}
 .exit-banner { position: absolute; z-index: 2; right: 18px; bottom: 18px; padding: 8px 12px; border: 1px solid #4b3e50; border-radius: 6px; background: #24202eec; color: #b9aec2; font-size: 11px; }
 .exit-banner.error { max-width: 520px; color: #ffacb8; border-color: #643744; background: #311f2aee; }
 
