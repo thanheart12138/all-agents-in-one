@@ -1,0 +1,61 @@
+{
+  "name": "all-agents-in-one",
+  "productName": "All Agents in One",
+  "version": "0.2.1",
+  "private": true,
+  "description": "A project-oriented terminal workspace for CLI agents.",
+  "author": "changsu",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "pack": "npm run build && electron-builder --mac dir",
+    "dist": "npm run build && electron-builder --mac dmg zip",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "latest",
+    "@xterm/xterm": "latest",
+    "node-pty": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "^5.1.1",
+    "electron": "43.2.0",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^5.0.0",
+    "typescript": "latest",
+    "vite": "^7.3.6"
+  },
+  "build": {
+    "appId": "com.allagentsinone.terminal",
+    "productName": "All Agents in One",
+    "asar": true,
+    "electronDist": "node_modules/electron/dist",
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
+    ],
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.svg.png",
+      "identity": null,
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
+  }
+}

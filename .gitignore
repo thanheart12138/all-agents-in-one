@@ -1,0 +1,12 @@
+node_modules/
+out/
+dist/
+release/
+.env*
+.DS_Store
+*.log
+.idea/
+.vscode/
+.codex/
+.agents/
+build/icon.iconset/
