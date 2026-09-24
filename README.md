@@ -1,49 +1,101 @@
 # All Agents in One
 
-一个以“项目 → 多个终端会话”组织本地 CLI Agent 的桌面终端工作台。
+## 中文
 
-## MVP 功能
+All Agents in One 是一个本地桌面工作台，用项目组织 CLI Agent 会话。项目使用 Electron、React、xterm.js、node-pty 和 tmux。
 
-- 选择本地目录创建项目。
-- 在每个项目内创建多个真实 PTY 终端。
-- 新建终端后立即进入 Shell，无额外选择步骤。
-- 首次输入命令并回车后，自动用主命令重命名终端，例如 `kimi`、`codex`。
-- 终端等待输入时显示 `Ready`，提交命令或持续输出时显示 `Running`。
-- 左侧以项目父节点、会话子节点和连接线展示层级。
-- 每个会话显示最近一次提交给 AI 的话。
-- 在终端之间切换时保持后台进程运行。
-- 重命名、重启和关闭终端。
-- 折叠、重命名和移除项目。
-- 项目与终端右键菜单、应用内确认弹窗和错误提示。
-- `⌘T` 新建终端、`⌘W` 关闭终端、`⌘1–9` 切换终端。
-- 自动保存项目树、终端名称和最后激活项。
+### 功能
 
-应用退出会终止所有 PTY 进程。跨应用重启恢复会话需要后续接入 `tmux`。
+- 将项目分为「当前项目」和「历史项目」，支持拖动排序及跨组移动。
+- 每个项目运行多个终端会话；切换会话时，后台会话继续运行。
+- 通过 tmux 在应用重启后恢复终端会话。
+- 后台会话变为 Ready、用户尚未查看时，显示低干扰的「待查看」标记。
+- 可选地在 iTerm2 中接入同一个 tmux 会话。
+- 显示 Git 分支；识别到 CLI 状态信息时尽力显示，无法识别则隐藏对应信息。
 
-## 本地运行
+### 环境要求
+
+- macOS。目前只验证过 arm64 DMG 打包。
+- Node.js 22.13 或更新版本，用于开发和运行测试。
+- tmux：`brew install tmux`。
+- iTerm2 为可选项，仅用于在外部终端接入会话。
+
+### 开发
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-生产构建与 macOS 打包：
+运行检查并构建本地 DMG：
 
 ```bash
+npm test
 npm run typecheck
 npm run build
-npm run pack
 npm run dist
 ```
 
-编译产物位于 `out/`，macOS `.app`、DMG 和 ZIP 位于 `release/`。
+`npm run dist` 会将 DMG 输出到 `release/<版本号>/`。当前 macOS 安装包未签名、未公证，首次打开时 Gatekeeper 可能显示提示。
 
-当前安装包未使用 Apple Developer ID 签名和公证，仅用于本地测试。公开分发前需要配置签名与 notarization。
+### 数据与隐私
 
-## 使用方式
+应用不包含通用遥测。项目和终端定义以 `workspace.json` 保存在 Electron 用户数据目录中，其中包括项目路径、终端元数据，以及最多 160 个字符的最近终端输入，用于侧栏标签展示。
 
-1. 点击“添加项目”，选择一个本地目录。
-2. 点击项目右侧的 `＋`，终端会立即创建并获得焦点。
-3. 输入 `kimi`、`codex` 等命令并回车，终端名称会自动改成对应主命令。
-4. 右键项目或终端可执行重命名、重启、关闭等操作。
-5. 点击左侧不同终端即可切换，未显示的终端会继续运行。
+Codex 用量信息从本机 `~/.codex/sessions/` 下的近期文件读取。Kimi 用量信息通过为 Kimi Code 配置的 HTTPS `/usages` 接口或 Kimi 默认接口获取。应用读取已有的本地 Kimi access token 发起请求，不会刷新或另行保存该 token。非 HTTPS 的自定义 Kimi 接口会被忽略。
+
+终端命令和会话内容保留在本机；用户在终端中运行的命令或 CLI 工具可能自行发起网络请求。
+
+### 发布产物
+
+DMG 保存在 `release/<版本号>/`，例如 `release/0.2.3/All Agents in One-0.2.3-arm64.dmg`。目前只打包 DMG。
+
+## English
+
+All Agents in One is a local desktop workspace for organizing CLI agent sessions by project. It uses Electron, React, xterm.js, node-pty and tmux.
+
+## Features
+
+- Organize projects into 「当前项目」 and 「历史项目」, with drag and drop to reorder or move between groups.
+- Run multiple terminal sessions per project and switch between them while background sessions continue running.
+- Persist terminal sessions through tmux across application restarts.
+- Show a low-key 「待查看」 marker when a background session becomes ready before you return to it.
+- Optionally attach to the same tmux session in iTerm2.
+- Display Git branches and best-effort CLI status information when recognizable.
+
+## Requirements
+
+- macOS. The arm64 DMG is the only architecture verified for packaging so far.
+- Node.js 22.13 or newer for development and tests.
+- tmux (`brew install tmux`).
+- iTerm2 is optional and only needed for the external attach action.
+
+## Development
+
+```bash
+npm ci
+npm run dev
+```
+
+Run checks and create a local DMG:
+
+```bash
+npm test
+npm run typecheck
+npm run build
+npm run dist
+```
+
+`npm run dist` writes a DMG to `release/<version>/`. The current macOS build is unsigned and not notarized, so Gatekeeper may warn when opening it.
+
+## Data and privacy
+
+The application has no general telemetry. Project and terminal definitions are stored locally in Electron's user data directory as `workspace.json`. This includes selected project paths, terminal metadata, and up to 160 characters of recent submitted terminal input used for the sidebar label.
+
+Codex usage information is read locally from recent files under `~/.codex/sessions/`. Kimi usage information is fetched from the HTTPS `/usages` endpoint configured for Kimi Code, or the default Kimi endpoint. The app reads the existing local Kimi access token to make that request; it does not refresh or persist the token. Custom non-HTTPS Kimi endpoints are ignored.
+
+Terminal commands and session contents remain on the local machine, except for network requests initiated by commands or CLI tools that the user runs inside those terminals.
+
+## Release artifacts
+
+DMGs are placed in `release/<version>/`, for example `release/0.2.3/All Agents in One-0.2.3-arm64.dmg`. Packaging currently targets DMG only.

@@ -52,6 +52,8 @@
 
 ## 最近验证
 
+- 2026-09-24：README 增加中文内容并保留英文版，涵盖功能、环境要求、开发、隐私和发布产物；人工核对双语章节对应，`git diff --check` 通过。
+- 2026-09-24：开源准备修订完成：README 补充功能、安装前置条件、数据处理说明与 DMG 路径；新增贡献指南、Apache NOTICE 和 GitHub Actions CI；锁定 package.json 依赖版本；Electron 启用 sandbox、限制导航与新窗口并校验 IPC 主框架；Kimi 用量接口只接受 HTTPS；替换截图里的真实外部仓库地址与提示文本。`npm test` 14 项通过，`npm run typecheck`、`npm run build`、离线 package-lock 同步通过。未打包、未提交或推送。
 - 2026-09-22：`npm run typecheck` 通过。
 - 2026-09-22：`npm run build` 通过。
 - 2026-09-22：Electron 开发窗口成功启动并完成视觉检查。

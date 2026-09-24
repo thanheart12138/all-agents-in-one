@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { getSecureKimiQuotaUrl } from './security-utils'
 
 /**
  * CLI 账号额度直读（借鉴 token-tracker 的取数方式，不依赖终端屏幕内容）：
@@ -42,15 +43,15 @@ function kimiHome(): string | null {
 }
 
 function kimiQuotaUrl(home: string): string {
+  let base: string | undefined
   try {
     const toml = readFileSync(join(home, 'config.toml'), 'utf-8')
     const section = toml.match(/\[providers\."managed:kimi-code"\]([\s\S]*?)(?:\n\[|$)/)
-    const base = section?.[1]?.match(/base_url\s*=\s*"([^"]+)"/)?.[1]?.trim().replace(/\/+$/, '')
-    if (base) return `${base}/usages`
+    base = section?.[1]?.match(/base_url\s*=\s*"([^"]+)"/)?.[1]?.trim()
   } catch {
     // 读不到配置就用官方默认
   }
-  return `${DEFAULT_KIMI_BASE_URL}/usages`
+  return getSecureKimiQuotaUrl(base, DEFAULT_KIMI_BASE_URL)
 }
 
 function readKimiToken(home: string): string | null {

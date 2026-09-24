@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { platform } from 'node:os'
 import * as pty from 'node-pty'
 import { hasMeaningfulTerminalOutput, isTerminalControlResponse, sanitizeTerminalInputChunk } from './input-parser'
@@ -21,6 +22,7 @@ import { readGitBranch } from './git'
 import { parseCliStatus } from './cli-status'
 import { moveProject, shouldMarkReadyForAttention } from './workspace-logic'
 import { getCodexQuota, getKimiQuota, startQuotaPolling } from './quota'
+import { isAllowedRendererUrl } from './security-utils'
 import type {
   CliStatus,
   CreateTerminalInput,
@@ -285,11 +287,24 @@ function restoreTerminalSessions(): void {
 }
 
 function registerIpc(): void {
-  ipcMain.handle('workspace:load', () => workspace)
+  const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).href
+  const isTrustedSender = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean =>
+    Boolean(mainWindow
+      && event.sender === mainWindow.webContents
+      && event.senderFrame === event.sender.mainFrame
+      && isAllowedRendererUrl(event.senderFrame.url, process.env.ELECTRON_RENDERER_URL, packagedRendererUrl))
+  const handle = (channel: string, handler: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => unknown): void => {
+    ipcMain.handle(channel, (event, ...args) => {
+      if (!isTrustedSender(event)) throw new Error('拒绝来自非应用窗口的 IPC 请求')
+      return handler(event, ...args)
+    })
+  }
 
-  ipcMain.handle('terminal:theme', () => readItermTheme())
+  handle('workspace:load', () => workspace)
 
-  ipcMain.handle('project:add', async () => {
+  handle('terminal:theme', () => readItermTheme())
+
+  handle('project:add', async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
       title: '选择项目目录',
       properties: ['openDirectory', 'createDirectory']
@@ -314,12 +329,12 @@ function registerIpc(): void {
     return project
   })
 
-  ipcMain.handle('project:reveal', async (_event, projectId: string) => {
+  handle('project:reveal', async (_event, projectId: string) => {
     const project = workspace.projects.find((item) => item.id === projectId)
     if (project) await shell.openPath(project.path)
   })
 
-  ipcMain.handle('project:remove', (_event, projectId: string) => {
+  handle('project:remove', (_event, projectId: string) => {
     const project = workspace.projects.find((item) => item.id === projectId)
     project?.terminals.forEach((terminal) => {
       sessions.get(terminal.id)?.kill()
@@ -338,21 +353,21 @@ function registerIpc(): void {
     return workspace
   })
 
-  ipcMain.handle('project:rename', (_event, projectId: string, name: string) => {
+  handle('project:rename', (_event, projectId: string, name: string) => {
     const project = workspace.projects.find((item) => item.id === projectId)
     if (project && name.trim()) project.name = name.trim()
     saveWorkspace()
     return workspace
   })
 
-  ipcMain.handle('project:toggle', (_event, projectId: string) => {
+  handle('project:toggle', (_event, projectId: string) => {
     const project = workspace.projects.find((item) => item.id === projectId)
     if (project) project.expanded = !project.expanded
     saveWorkspace()
     return workspace
   })
 
-  ipcMain.handle('project:move', (_event, projectId: string, current: boolean, beforeProjectId?: string) => {
+  handle('project:move', (_event, projectId: string, current: boolean, beforeProjectId?: string) => {
     const projects = moveProject(workspace.projects, projectId, current, beforeProjectId)
     if (projects !== workspace.projects) {
       workspace.projects = projects
@@ -361,7 +376,7 @@ function registerIpc(): void {
     return workspace
   })
 
-  ipcMain.handle('terminal:create', (_event, input: CreateTerminalInput) => {
+  handle('terminal:create', (_event, input: CreateTerminalInput) => {
     const project = workspace.projects.find((item) => item.id === input.projectId)
     if (!project) return workspace
 
@@ -382,7 +397,7 @@ function registerIpc(): void {
     return workspace
   })
 
-  ipcMain.handle('terminal:open', async (_event, terminalId: string) => {
+  handle('terminal:open', async (_event, terminalId: string) => {
     const found = findTerminal(terminalId)
     if (!found) return workspace
     if (!isItermInstalled()) throw new Error('未找到 iTerm2，请先从 iterm2.com 安装')
@@ -394,7 +409,7 @@ function registerIpc(): void {
     return workspace
   })
 
-  ipcMain.handle('terminal:rename', (_event, terminalId: string, name: string) => {
+  handle('terminal:rename', (_event, terminalId: string, name: string) => {
     const found = findTerminal(terminalId)
     if (found && name.trim()) {
       found.terminal.name = name.trim()
@@ -404,7 +419,7 @@ function registerIpc(): void {
     return workspace
   })
 
-  ipcMain.handle('terminal:close', (_event, terminalId: string) => {
+  handle('terminal:close', (_event, terminalId: string) => {
     const found = findTerminal(terminalId)
     sessions.get(terminalId)?.kill()
     sessions.delete(terminalId)
@@ -424,13 +439,13 @@ function registerIpc(): void {
     return workspace
   })
 
-  ipcMain.handle('terminal:restart', (_event, terminalId: string) => {
+  handle('terminal:restart', (_event, terminalId: string) => {
     const found = findTerminal(terminalId)
     if (found) spawnTerminal(found.project, found.terminal, true)
     return workspace
   })
 
-  ipcMain.handle('terminal:activate', (_event, terminalId: string) => {
+  handle('terminal:activate', (_event, terminalId: string) => {
     workspace.activeTerminalId = terminalId
     const found = findTerminal(terminalId)
     if (found) found.terminal.needsAttention = false
@@ -438,14 +453,16 @@ function registerIpc(): void {
     return workspace
   })
 
-  ipcMain.on('terminal:write', (_event, terminalId: string, data: string) => {
+  ipcMain.on('terminal:write', (event, terminalId: string, data: string) => {
+    if (!isTrustedSender(event)) return
     sessions.get(terminalId)?.write(data)
     const found = findTerminal(terminalId)
     if (found && (data.includes('\r') || data.includes('\n'))) beginTerminalRun(found.terminal)
     captureTerminalInput(terminalId, data)
   })
 
-  ipcMain.on('terminal:resize', (_event, terminalId: string, cols: number, rows: number) => {
+  ipcMain.on('terminal:resize', (event, terminalId: string, cols: number, rows: number) => {
+    if (!isTrustedSender(event)) return
     if (cols > 0 && rows > 0) sessions.get(terminalId)?.resize(cols, rows)
   })
 }
@@ -463,9 +480,15 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   })
+
+  const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).href
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!isAllowedRendererUrl(url, process.env.ELECTRON_RENDERER_URL, packagedRendererUrl)) event.preventDefault()
+  })
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 
   mainWindow.on('closed', () => {
     mainWindow = null

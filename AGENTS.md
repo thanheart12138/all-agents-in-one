@@ -12,7 +12,8 @@
 - 应用退出只断开显示连接，不 kill tmux session，重启后可恢复。
 - 保持 `contextIsolation: true`、`nodeIntegration: false`。
 - 使用 JSON 保存项目和终端定义，不引入数据库。
-- 不解析或耦合 Codex、Claude 等具体 CLI 的输出协议。
+- 不控制或依赖 Codex、Claude 等具体 CLI 的私有输出协议；允许从 tmux 可见屏幕只读、尽力解析常见状态信息，无法识别时隐藏对应字段。
+- BrowserWindow 保持 `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`；限制导航与新窗口，并校验所有 IPC 请求来自应用主框架。
 
 ## 目录约定
 
@@ -20,9 +21,12 @@
 - `src/preload/`：安全 IPC 桥。
 - `src/renderer/`：React 用户界面（项目树 + 内嵌终端）。
 - `src/shared/`：跨进程共享类型。
+- `tests/`：Node 内置测试运行器的单元测试。
+- `.github/workflows/`：仓库 CI 工作流。
 
 ## 验证要求
 
 - 每次功能改动至少执行 `npm run typecheck` 和 `npm run build`。
+- 与逻辑相关的改动运行 `npm test`；测试要求 Node.js 22.13 或更新版本。
 - PTY 生命周期变更必须验证：创建、输入、缩放、切换和关闭。
 - 已验证事项才可写入 `ROADMAP.md` 的“已完成”。
