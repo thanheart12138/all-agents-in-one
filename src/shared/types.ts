@@ -10,6 +10,7 @@ export interface TerminalDefinition {
   exitCode?: number
   error?: string
   lastUserMessage?: string
+  needsAttention?: boolean
   tmuxSessionName?: string
   persistence?: 'tmux'
 }
@@ -19,6 +20,7 @@ export interface ProjectDefinition {
   name: string
   path: string
   expanded: boolean
+  current: boolean
   /** 当前 Git 分支名（detached HEAD 时为短 SHA），非 Git 目录为空 */
   gitBranch?: string
   terminals: TerminalDefinition[]
@@ -84,6 +86,7 @@ export interface TerminalApi {
   revealProject(projectId: string): Promise<void>
   renameProject(projectId: string, name: string): Promise<WorkspaceState>
   toggleProject(projectId: string): Promise<WorkspaceState>
+  moveProject(projectId: string, current: boolean, beforeProjectId?: string): Promise<WorkspaceState>
   createTerminal(input: CreateTerminalInput): Promise<WorkspaceState>
   openTerminal(terminalId: string): Promise<WorkspaceState>
   renameTerminal(terminalId: string, name: string): Promise<WorkspaceState>

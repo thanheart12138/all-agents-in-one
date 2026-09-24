@@ -14,6 +14,7 @@ const api: TerminalApi = {
   revealProject: (projectId) => ipcRenderer.invoke('project:reveal', projectId),
   renameProject: (projectId, name) => ipcRenderer.invoke('project:rename', projectId, name),
   toggleProject: (projectId) => ipcRenderer.invoke('project:toggle', projectId),
+  moveProject: (projectId, current, beforeProjectId) => ipcRenderer.invoke('project:move', projectId, current, beforeProjectId),
   createTerminal: (input) => ipcRenderer.invoke('terminal:create', input),
   openTerminal: (terminalId) => ipcRenderer.invoke('terminal:open', terminalId),
   renameTerminal: (terminalId, name) => ipcRenderer.invoke('terminal:rename', terminalId, name),

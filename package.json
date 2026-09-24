@@ -1,7 +1,7 @@
 {
   "name": "all-agents-in-one",
   "productName": "All Agents in One",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "A project-oriented terminal workspace for CLI agents.",
   "author": "changsu",
@@ -10,7 +10,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "pack": "npm run build && electron-builder --mac dir",
-    "dist": "npm run build && electron-builder --mac dmg zip",
+    "dist": "npm run build && electron-builder --mac dmg",
     "typecheck": "tsc --noEmit",
     "postinstall": "electron-builder install-app-deps"
   },
@@ -45,15 +45,14 @@
       "package.json"
     ],
     "directories": {
-      "output": "release"
+      "output": "release/${version}"
     },
     "mac": {
       "category": "public.app-category.developer-tools",
       "icon": "build/icon.svg.png",
       "identity": null,
       "target": [
-        "dmg",
-        "zip"
+        "dmg"
       ]
     },
     "artifactName": "${productName}-${version}-${arch}.${ext}"

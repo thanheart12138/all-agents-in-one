@@ -61,6 +61,7 @@ function loadWorkspace(): void {
         ? saved.projects.map((project) => ({
             ...project,
             expanded: project.expanded ?? true,
+            current: project.current === true,
             terminals: Array.isArray(project.terminals)
               ? project.terminals.map((terminal) => ({
                   ...terminal,
@@ -118,6 +119,8 @@ function scheduleTerminalReady(terminal: TerminalDefinition): void {
   activityTimers.set(terminal.id, setTimeout(() => {
     if (sessions.has(terminal.id) && terminal.status === 'running') {
       terminal.status = 'ready'
+      terminal.needsAttention = workspace.activeTerminalId !== terminal.id || !mainWindow?.isFocused()
+      saveWorkspace()
       publishWorkspace()
     }
     activityTimers.delete(terminal.id)
@@ -128,6 +131,7 @@ function beginTerminalRun(terminal: TerminalDefinition): void {
   if (terminal.status === 'exited' || terminal.status === 'missing' || terminal.status === 'error' || terminal.status === 'detached') return
   if (terminal.status !== 'running') {
     terminal.status = 'running'
+    terminal.needsAttention = false
     publishWorkspace()
   }
   scheduleTerminalReady(terminal)
@@ -188,6 +192,7 @@ function spawnTerminal(project: ProjectDefinition, terminal: TerminalDefinition,
   }
 
   terminal.status = 'starting'
+  if (forceNew) terminal.needsAttention = false
   delete terminal.exitCode
   delete terminal.error
 
@@ -299,6 +304,7 @@ function registerIpc(): void {
       name: path.split(/[\\/]/).filter(Boolean).at(-1) ?? '新项目',
       path,
       expanded: true,
+      current: true,
       gitBranch: readGitBranch(path) ?? undefined,
       terminals: []
     }
@@ -341,6 +347,22 @@ function registerIpc(): void {
   ipcMain.handle('project:toggle', (_event, projectId: string) => {
     const project = workspace.projects.find((item) => item.id === projectId)
     if (project) project.expanded = !project.expanded
+    saveWorkspace()
+    return workspace
+  })
+
+  ipcMain.handle('project:move', (_event, projectId: string, current: boolean, beforeProjectId?: string) => {
+    if (projectId === beforeProjectId) return workspace
+    const index = workspace.projects.findIndex((project) => project.id === projectId)
+    if (index < 0 || typeof current !== 'boolean') return workspace
+    const [project] = workspace.projects.splice(index, 1)
+    project.current = current
+    const beforeIndex = workspace.projects.findIndex((item) => item.id === beforeProjectId && item.current === current)
+    if (beforeIndex >= 0) workspace.projects.splice(beforeIndex, 0, project)
+    else {
+      const lastIndex = workspace.projects.map((item) => item.current).lastIndexOf(current)
+      workspace.projects.splice(lastIndex + 1, 0, project)
+    }
     saveWorkspace()
     return workspace
   })
@@ -416,6 +438,8 @@ function registerIpc(): void {
 
   ipcMain.handle('terminal:activate', (_event, terminalId: string) => {
     workspace.activeTerminalId = terminalId
+    const found = findTerminal(terminalId)
+    if (found) found.terminal.needsAttention = false
     saveWorkspace()
     return workspace
   })
@@ -454,7 +478,15 @@ function createWindow(): void {
   })
 
   // 窗口重新获得焦点时刷新一次分支（用户可能在外部切换了分支）
-  mainWindow.on('focus', refreshGitBranches)
+  mainWindow.on('focus', () => {
+    refreshGitBranches()
+    const active = workspace.activeTerminalId ? findTerminal(workspace.activeTerminalId)?.terminal : null
+    if (active?.needsAttention) {
+      active.needsAttention = false
+      saveWorkspace()
+      publishWorkspace()
+    }
+  })
 
   if (process.env.ELECTRON_RENDERER_URL) {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)

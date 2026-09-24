@@ -28,8 +28,10 @@ export function App(): React.JSX.Element {
   // undefined = 主题尚未加载完成（先不创建终端视图，避免用默认主题渲染后再重建）
   const [itermTheme, setItermTheme] = useState<ItermTheme | null | undefined>(undefined)
   const [cliStatuses, setCliStatuses] = useState<Record<string, CliStatus>>({})
+  const [dragTarget, setDragTarget] = useState<string | null>(null)
 
   const terminals = useMemo(() => workspace.projects.flatMap((project) => project.terminals), [workspace.projects])
+  const pendingCount = terminals.filter((terminal) => terminal.status === 'ready' && terminal.needsAttention).length
   const activeTerminal = terminals.find((terminal) => terminal.id === workspace.activeTerminalId) ?? null
   const activeProject = activeTerminal
     ? workspace.projects.find((project) => project.id === activeTerminal.projectId) ?? null
@@ -128,19 +130,28 @@ export function App(): React.JSX.Element {
     try { clearTerminalOutput(terminal.id); setWorkspace(await window.terminalApi.restartTerminal(terminal.id)) } catch (error) { showError(error) }
   }
 
+  async function moveProject(projectId: string, current: boolean, beforeProjectId?: string): Promise<void> {
+    setDragTarget(null)
+    try { setWorkspace(await window.terminalApi.moveProject(projectId, current, beforeProjectId)) } catch (error) { showError(error) }
+  }
+
   return (
     <main className="app-shell" onClick={() => setContextMenu(null)}>
       <aside className="sidebar">
         <div className="brand"><div className="brand-mark"><span>›</span><i /></div><div><h1>One</h1><p>All agents in one.</p></div></div>
-        <div className="section-heading"><span>项目</span><button className="icon-button" onClick={() => void addProject()} title="添加项目（⌘⇧O）">＋</button></div>
+        <div className="section-heading"><span>项目</span><div className="section-actions">{pendingCount > 0 && <span className="pending-count">{pendingCount} 待查看</span>}<button className="icon-button" onClick={() => void addProject()} title="添加项目（⌘⇧O）">＋</button></div></div>
 
         <div className="project-list">
           {!loading && workspace.projects.length === 0 && <button className="empty-projects" onClick={() => void addProject()}><strong>添加第一个项目</strong><span>选择一个本地目录开始</span></button>}
-          {workspace.projects.map((project) => (
-            <section className="project" key={project.id}>
-              <div className="project-row" onContextMenu={(event) => { event.preventDefault(); setContextMenu({ kind: 'project', project, x: event.clientX, y: event.clientY }) }}>
+          {([true, false] as const).map((current) => <div className={`project-group ${dragTarget === String(current) ? 'drop-target' : ''}`} key={String(current)} onDragOver={(event) => { event.preventDefault(); setDragTarget(String(current)) }} onDrop={(event) => { event.preventDefault(); void moveProject(event.dataTransfer.getData('text/plain'), current) }}>
+            <div className="project-group-heading"><span>{current ? '当前项目' : '历史项目'}</span><small>{workspace.projects.filter((project) => project.current === current).length}</small></div>
+            {current && workspace.projects.every((project) => !project.current) && <div className="project-group-empty">拖动项目到这里，安排今天的工作</div>}
+          {workspace.projects.filter((project) => project.current === current).map((project) => (
+            <section className={`project ${dragTarget === project.id ? 'drop-target' : ''}`} key={project.id} onDragOver={(event) => { event.preventDefault(); event.stopPropagation(); setDragTarget(project.id) }} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); void moveProject(event.dataTransfer.getData('text/plain'), current, project.id) }}>
+              <div className="project-row" draggable onDragStart={(event) => { event.dataTransfer.setData('text/plain', project.id); event.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => setDragTarget(null)} onContextMenu={(event) => { event.preventDefault(); setContextMenu({ kind: 'project', project, x: event.clientX, y: event.clientY }) }}>
                 <button className="project-title" onClick={async () => setWorkspace(await window.terminalApi.toggleProject(project.id))}>
                   <span className={`chevron ${project.expanded ? 'expanded' : ''}`}>›</span><span className="folder">▱</span><span className="project-name">{project.name}</span>
+                  {project.terminals.some((terminal) => terminal.status === 'ready' && terminal.needsAttention) && <span className="project-pending" title="有待查看的会话" />}
                   {project.gitBranch && <span className="branch-badge" title={`Git 分支：${project.gitBranch}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" /></svg><span>{project.gitBranch}</span></span>}
                 </button>
                 <div className="row-actions">
@@ -150,12 +161,13 @@ export function App(): React.JSX.Element {
               </div>
               {project.expanded && <div className="terminal-list">
                 {project.terminals.map((terminal) => <button key={terminal.id} className={`terminal-row ${terminal.id === workspace.activeTerminalId ? 'active' : ''}`} onClick={() => void activateTerminal(terminal.id)} onContextMenu={(event) => { event.preventDefault(); setContextMenu({ kind: 'terminal', terminal, x: event.clientX, y: event.clientY }) }}>
-                  <CommandIcon commandName={terminal.name} /><span className="terminal-meta"><span className="terminal-summary"><strong>{terminal.name}</strong><span className={`status-dot ${terminal.status}`} /><small>{statusLabels[terminal.status]}{terminal.exitCode !== undefined ? ` · ${terminal.exitCode}` : ''}</small></span><span className={`terminal-preview ${terminal.lastUserMessage ? '' : 'empty'}`}>{terminal.lastUserMessage || '新会话'}</span></span>
+                  <CommandIcon commandName={terminal.name} /><span className="terminal-meta"><span className="terminal-summary"><strong>{terminal.name}</strong><span className={`status-dot ${terminal.status}`} /><small>{statusLabels[terminal.status]}{terminal.exitCode !== undefined ? ` · ${terminal.exitCode}` : ''}</small>{terminal.status === 'ready' && terminal.needsAttention && <span className="attention-badge">待查看</span>}</span><span className={`terminal-preview ${terminal.lastUserMessage ? '' : 'empty'}`}>{terminal.lastUserMessage || '新会话'}</span></span>
                 </button>)}
                 {project.terminals.length === 0 && <button className="new-terminal" onClick={() => void createTerminal(project)}>＋ 新建终端</button>}
               </div>}
             </section>
           ))}
+          </div>)}
         </div>
         <div className="sidebar-footer"><span>{terminals.length} 个终端</span><span>⌘1–9 切换</span></div>
       </aside>
@@ -203,7 +215,7 @@ export function App(): React.JSX.Element {
       </section>
 
       {dialog && <Dialog state={dialog} onCancel={() => setDialog(null)} onRenameProject={renameProject} onRenameTerminal={renameTerminal} onRemoveProject={removeProject} onCloseTerminal={closeTerminal} />}
-      {contextMenu && <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} onNewTerminal={(project) => void createTerminal(project)} onRenameProject={(project) => setDialog({ kind: 'rename-project', project })} onRemoveProject={(project) => setDialog({ kind: 'remove-project', project })} onOpenTerminal={(terminal) => void openTerminal(terminal)} onRenameTerminal={(terminal) => setDialog({ kind: 'rename-terminal', terminal })} onCloseTerminal={(terminal) => setDialog({ kind: 'close-terminal', terminal })} onRestartTerminal={restartTerminal} />}
+      {contextMenu && <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} onNewTerminal={(project) => void createTerminal(project)} onMoveProject={(project) => void moveProject(project.id, !project.current)} onRenameProject={(project) => setDialog({ kind: 'rename-project', project })} onRemoveProject={(project) => setDialog({ kind: 'remove-project', project })} onOpenTerminal={(terminal) => void openTerminal(terminal)} onRenameTerminal={(terminal) => setDialog({ kind: 'rename-terminal', terminal })} onCloseTerminal={(terminal) => setDialog({ kind: 'close-terminal', terminal })} onRestartTerminal={restartTerminal} />}
       {toast && <div className="toast" role="alert">{toast}<button onClick={() => setToast(null)}>×</button></div>}
     </main>
   )
@@ -239,6 +251,7 @@ function Dialog(props: DialogProps): React.JSX.Element {
 
 interface ContextMenuProps {
   state: Exclude<ContextState, null>; onClose(): void; onNewTerminal(project: ProjectDefinition): void
+  onMoveProject(project: ProjectDefinition): void
   onRenameProject(project: ProjectDefinition): void; onRemoveProject(project: ProjectDefinition): void
   onOpenTerminal(terminal: TerminalDefinition): void
   onRenameTerminal(terminal: TerminalDefinition): void; onCloseTerminal(terminal: TerminalDefinition): void
@@ -250,6 +263,6 @@ function ContextMenu(props: ContextMenuProps): React.JSX.Element {
   const style = { left: Math.min(state.x, window.innerWidth - 190), top: Math.min(state.y, window.innerHeight - 180) }
   const action = (callback: () => void): void => { props.onClose(); callback() }
   return <div className="context-menu" style={style} onClick={(event) => event.stopPropagation()}>{state.kind === 'project' ? <>
-    <button onClick={() => action(() => props.onNewTerminal(state.project))}>新建终端 <kbd>⌘T</kbd></button><button onClick={() => action(() => props.onRenameProject(state.project))}>重命名</button><button onClick={() => action(() => void window.terminalApi.revealProject(state.project.id))}>在 Finder 中显示</button><hr /><button className="danger" onClick={() => action(() => props.onRemoveProject(state.project))}>移除项目</button>
+    <button onClick={() => action(() => props.onNewTerminal(state.project))}>新建终端 <kbd>⌘T</kbd></button><button onClick={() => action(() => props.onMoveProject(state.project))}>移至{state.project.current ? '历史项目' : '当前项目'}</button><button onClick={() => action(() => props.onRenameProject(state.project))}>重命名</button><button onClick={() => action(() => void window.terminalApi.revealProject(state.project.id))}>在 Finder 中显示</button><hr /><button className="danger" onClick={() => action(() => props.onRemoveProject(state.project))}>移除项目</button>
   </> : <><button onClick={() => action(() => props.onOpenTerminal(state.terminal))}>在 iTerm 中打开</button><button onClick={() => action(() => void props.onRestartTerminal(state.terminal))}>重启 <kbd>⌘⇧R</kbd></button><button onClick={() => action(() => props.onRenameTerminal(state.terminal))}>重命名 <kbd>F2</kbd></button><hr /><button className="danger" onClick={() => action(() => props.onCloseTerminal(state.terminal))}>关闭 <kbd>⌘W</kbd></button></>}</div>
 }
