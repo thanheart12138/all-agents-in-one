@@ -11,6 +11,7 @@
     "build": "electron-vite build",
     "pack": "npm run build && electron-builder --mac dir",
     "dist": "npm run build && electron-builder --mac dmg",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "postinstall": "electron-builder install-app-deps"
   },

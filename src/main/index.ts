@@ -19,6 +19,7 @@ import { isItermInstalled, openInIterm } from './iterm'
 import { readItermTheme } from './iterm-theme'
 import { readGitBranch } from './git'
 import { parseCliStatus } from './cli-status'
+import { moveProject, shouldMarkReadyForAttention } from './workspace-logic'
 import { getCodexQuota, getKimiQuota, startQuotaPolling } from './quota'
 import type {
   CliStatus,
@@ -119,7 +120,7 @@ function scheduleTerminalReady(terminal: TerminalDefinition): void {
   activityTimers.set(terminal.id, setTimeout(() => {
     if (sessions.has(terminal.id) && terminal.status === 'running') {
       terminal.status = 'ready'
-      terminal.needsAttention = workspace.activeTerminalId !== terminal.id || !mainWindow?.isFocused()
+      terminal.needsAttention = shouldMarkReadyForAttention(terminal.id, workspace.activeTerminalId, Boolean(mainWindow?.isFocused()))
       saveWorkspace()
       publishWorkspace()
     }
@@ -352,18 +353,11 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('project:move', (_event, projectId: string, current: boolean, beforeProjectId?: string) => {
-    if (projectId === beforeProjectId) return workspace
-    const index = workspace.projects.findIndex((project) => project.id === projectId)
-    if (index < 0 || typeof current !== 'boolean') return workspace
-    const [project] = workspace.projects.splice(index, 1)
-    project.current = current
-    const beforeIndex = workspace.projects.findIndex((item) => item.id === beforeProjectId && item.current === current)
-    if (beforeIndex >= 0) workspace.projects.splice(beforeIndex, 0, project)
-    else {
-      const lastIndex = workspace.projects.map((item) => item.current).lastIndexOf(current)
-      workspace.projects.splice(lastIndex + 1, 0, project)
+    const projects = moveProject(workspace.projects, projectId, current, beforeProjectId)
+    if (projects !== workspace.projects) {
+      workspace.projects = projects
+      saveWorkspace()
     }
-    saveWorkspace()
     return workspace
   })
 

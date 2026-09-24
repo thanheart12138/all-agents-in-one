@@ -33,6 +33,7 @@
 - 修复全屏时终端内容从右侧和底部溢出：将终端间距放到 xterm 自身，使 FitAddon 计算行列数时扣除间距；终端外框与滚动区域同步 iTerm 主题底色，避免露出黑边。
 - 侧栏将项目分为「当前项目」和「历史项目」，支持拖动项目排序及跨组移动，并提供右键菜单移动入口；分组与顺序保存在工作区 JSON。旧项目首次载入归入历史项目，新添加项目归入当前项目。
 - 后台终端从 Running 转为 Ready 后，若用户尚未查看，在侧栏显示低干扰的「待查看」标记；打开会话后清除，未查看状态随工作区保存。
+- 使用 Node 内置测试运行器覆盖终端输入过滤、Kimi/Codex 状态解析、项目分组移动和 Ready 待查看判断；通过 `npm test` 运行，不增加依赖。
 - 项目树在 Git 仓库目录旁显示分支徽标（直读 `.git/HEAD`，支持 worktree 与 detached HEAD，启动时解析、每 30 秒轮询、窗口聚焦时刷新）。
 - 顶部 CLI 状态栏：`[项目名](分支) | CLI | Total | Cost | 5h | 7d | Model | ctx | tmux 会话 | 最近输入 | Ready/Running 状态`。其中 Model/ctx/Total/Cost 由 tmux capture-pane 只读抓取终端屏幕解析（支持 Kimi Code 新旧状态行与 Codex 状态行，识别不出自动隐藏，不耦合 CLI 内部协议）；5h/7d 额度由主进程直读（借鉴 token-tracker）：Kimi 走云端 `GET <base_url>/usages`（OAuth 凭证 `~/.kimi/credentials/kimi-code.json`，120 秒缓存、15 分钟失效），Codex 扫 `~/.codex/sessions/` 最近 5 个 jsonl 的 `token_count` 事件限额快照（纯本地、30 秒刷新），均为「已用百分比」，失败自动隐藏分段。
 
@@ -78,3 +79,4 @@
 - 2026-09-24：当前／历史项目拖放分组与终端 Ready 待查看标记完成；`npm run typecheck`、`npm run build`、`git diff --check` 通过。拖放与标记的实际窗口交互尚待手动验证。
 - 2026-09-24：版本升至 0.2.3，`package.json` 与 `package-lock.json` 顶层版本一致；`npm run typecheck`、`npm run dist` 通过，生成本地 arm64 DMG 和 ZIP。`hdiutil verify`、`unzip -tq` 均通过，打包应用的 `CFBundleShortVersionString` 为 0.2.3；按现有配置未签名，也未公开发布。
 - 2026-09-24：按要求将打包目标改为仅 DMG，输出目录改为 `release/${version}/`；重新运行 `npm run dist`，产物为 `release/0.2.3/All Agents in One-0.2.3-arm64.dmg`，该版本目录无 ZIP。`npm run typecheck`、`hdiutil verify`、`git diff --check` 通过，包内版本为 0.2.3。
+- 2026-09-24：新增 `npm test`，12 项测试全部通过，覆盖输入过滤、CLI 状态解析、项目分组移动与 Ready 待查看逻辑；`npm run typecheck`、`npm run build`、`git diff --check` 通过。
