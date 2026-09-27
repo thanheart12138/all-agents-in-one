@@ -121,12 +121,13 @@ button { color: inherit; font: inherit; }
 .terminal-stage { position: absolute; inset: 90px 0 0; }
 .terminal-view { display: none; position: absolute; inset: 0; background: var(--terminal-bg, #11131f); }
 .terminal-view.active { display: block; }
-.terminal-view .xterm { width: 100%; height: 100%; padding: 14px 10px 10px 16px; background: var(--terminal-bg, #11131f); }
-.terminal-view .xterm .xterm-viewport { background-color: var(--terminal-bg, #11131f); }
-.terminal-view .xterm .xterm-viewport::-webkit-scrollbar { width: 15px; background: var(--terminal-bg, #11131f); }
-.terminal-view .xterm .xterm-viewport::-webkit-scrollbar-thumb { border: 5px solid var(--terminal-bg, #11131f); border-radius: 15px; background: #505671; background-clip: padding-box; }
-/* IME 组合文本（拼音输入中）：默认是纯黑不透明白字块，盖在字上像 bug；
-   改成跟随终端主题底色 + 虚线下划线，视觉上等同 iTerm 的内联标记文本 */
+.drop-notice { position: absolute; z-index: 4; top: 4px; right: 18px; max-width: calc(100% - 36px); padding: 6px 10px; border: 1px solid #3a3e54; border-radius: 6px; background: #1b1e2d; color: #cfe1ff; font-size: 12px; overflow-wrap: anywhere; }
+.drop-notice.error { color: #ffacb8; }
+.drop-notice button { margin-left: 10px; color: inherit; background: none; border: 0; cursor: pointer; }
+.terminal-view .xterm { width: 100%; height: 100%; padding: 38px 74px 10px 16px; background: var(--terminal-bg, #11131f); text-spacing-trim: space-all; }
+.terminal-view .xterm .xterm-viewport { background-color: var(--terminal-bg, #11131f); scrollbar-width: none; }
+.terminal-view .xterm .xterm-viewport::-webkit-scrollbar { display: none; }
+/* 拼音和输入法定位由 xterm 跟随光标，只覆盖组合文字的外观。 */
 .terminal-view .xterm .composition-view {
   background: var(--terminal-bg, #1e1e2e) !important;
   color: var(--terminal-fg, #dfe3f3) !important;

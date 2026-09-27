@@ -18,11 +18,13 @@ export function initializeTmux(userDataPath: string): void {
     'set -g status off',
     'set -g prefix None',
     'unbind-key C-b',
-    // 滚轮向上进入 copy-mode 翻阅历史（history-limit 50000 行），解决长输出无法回看；
-    // 鼠标拖选后直接复制进 macOS 剪贴板，保持本地选择的可用性
+    // 滚轮向上进入 copy-mode 翻阅历史；拖选松开后保留选区，等待 Cmd+C 复制
     'set -g mouse on',
-    'bind -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"',
-    'bind -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"',
+    // 单击松开才结束回看；拖选松开走 MouseDragEnd1Pane，保留选区供 Cmd+C 复制
+    'bind -T copy-mode MouseUp1Pane send-keys -X cancel',
+    'bind -T copy-mode-vi MouseUp1Pane send-keys -X cancel',
+    'unbind -T copy-mode MouseDragEnd1Pane',
+    'unbind -T copy-mode-vi MouseDragEnd1Pane',
     'set -g history-limit 50000',
     'set -g remain-on-exit on',
     'set -g window-size latest',
@@ -77,6 +79,19 @@ export function tmuxConnection(sessionName: string, cwd: string): { file: string
 export function tmuxAttachCommand(sessionName: string): { file: string; args: string[] } {
   if (!executable) throw new Error('未找到 tmux，请先安装 tmux')
   return { file: executable, args: [...baseArgs(), 'attach-session', '-t', sessionName] }
+}
+
+/** 有鼠标选区时复制到系统剪贴板；没有选区时交给窗口的普通复制行为。 */
+export function copyTmuxSelection(sessionName: string): boolean {
+  if (!executable) return false
+  try {
+    const selected = execFileSync(executable, [...baseArgs(), 'display-message', '-p', '-t', sessionName, '#{selection_present}'], { encoding: 'utf8' }).trim()
+    if (selected !== '1') return false
+    execFileSync(executable, [...baseArgs(), 'send-keys', '-t', sessionName, '-X', 'copy-pipe-and-cancel', 'pbcopy'], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** 抓取会话当前可见屏幕的文本内容（渲染后的纯文本，不含转义序列）；会话不存在返回 null */

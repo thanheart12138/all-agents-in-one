@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { TerminalApi, TerminalDataEvent, TerminalExitEvent } from '../shared/types'
 
 const api: TerminalApi = {
@@ -22,6 +22,13 @@ const api: TerminalApi = {
   restartTerminal: (terminalId) => ipcRenderer.invoke('terminal:restart', terminalId),
   setActiveTerminal: (terminalId) => ipcRenderer.invoke('terminal:activate', terminalId),
   write: (terminalId, data) => ipcRenderer.send('terminal:write', terminalId, data),
+  pasteImage: (terminalId) => ipcRenderer.invoke('terminal:paste-image', terminalId),
+  prepareDroppedFiles: async (terminalId, files) => {
+    const paths = files.map((file) => webUtils.getPathForFile(file))
+    return ipcRenderer.invoke('terminal:prepare-files', terminalId, paths)
+  },
+  hasLocalFiles: (files) => files.length > 0 && files.every((file) => Boolean(webUtils.getPathForFile(file))),
+  setTerminalFocused: (terminalId, focused) => ipcRenderer.send('terminal:focus', terminalId, focused),
   resize: (terminalId, cols, rows) => ipcRenderer.send('terminal:resize', terminalId, cols, rows),
   onData: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: TerminalDataEvent): void => callback(payload)

@@ -10,6 +10,10 @@ All Agents in One 是一个本地桌面工作台，用项目组织 CLI Agent 会
 - 每个项目运行多个终端会话；切换会话时，后台会话继续运行。
 - 通过 tmux 在应用重启后恢复终端会话。
 - 后台会话变为 Ready、用户尚未查看时，显示低干扰的「待查看」标记。
+- 在 Codex 或 Kimi 终端中按 ⌘V 粘贴剪贴板图片；CLI 会缓存图片并在输入框显示图片占位标记（需所选模型支持图片输入）。
+- 用 ⌘+、⌘− 或在终端区域双指捏合调整字号，⌘0 恢复 iTerm2 配置的字号（未配置时为 14 点）。
+- 将本地文件拖入终端可插入路径，支持多文件，不自动回车。项目外文件会复制到当前项目 `.aao/attachments/` 的独立批次目录，并自动添加 Git 忽略；项目内文件直接引用。附件副本保留到手动清理，不与原文件同步，暂不支持文件夹。此功能需使用包含该改动的新构建。
+- 支持在 Finder 选中文件后按 ⌘C，再到终端按 ⌘V，使用与拖入相同的文件导入流程；复制图片文件也按文件导入，截图和普通文字保留原有粘贴行为。
 - 可选地在 iTerm2 中接入同一个 tmux 会话。
 - 显示 Git 分支；识别到 CLI 状态信息时尽力显示，无法识别则隐藏对应信息。
 
@@ -60,6 +64,10 @@ All Agents in One is a local desktop workspace for organizing CLI agent sessions
 - Run multiple terminal sessions per project and switch between them while background sessions continue running.
 - Persist terminal sessions through tmux across application restarts.
 - Show a low-key 「待查看」 marker when a background session becomes ready before you return to it.
+- Press ⌘V in a Codex or Kimi terminal to paste a clipboard image; the CLI caches it and shows an image placeholder (the selected model must support image input).
+- Drop local files into a terminal to insert quoted paths without submitting. External files are copied into batch folders under the project's `.aao/attachments/`, which is automatically added to `.gitignore`; internal files are referenced directly. Copies persist until manually removed and do not sync with originals. Multiple files are supported; folders are not. Requires a build containing this change.
+- Copy files in Finder with ⌘C and paste into a terminal with ⌘V to use the same import flow. Copied image files are imported as files; screenshots and plain text keep their existing paste behavior.
+- Use ⌘+, ⌘−, or a two-finger pinch over the terminal to change its font size, and ⌘0 to restore the iTerm2 profile size (14 pt when unavailable).
 - Optionally attach to the same tmux session in iTerm2.
 - Display Git branches and best-effort CLI status information when recognizable.
 

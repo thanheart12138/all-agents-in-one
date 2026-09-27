@@ -48,7 +48,7 @@ export interface TerminalExitEvent {
   exitCode: number
 }
 
-export type AppCommand = 'add-project' | 'new-terminal' | 'close-terminal' | 'restart-terminal' | 'rename-terminal'
+export type AppCommand = 'add-project' | 'new-terminal' | 'close-terminal' | 'restart-terminal' | 'rename-terminal' | 'zoom-in' | 'zoom-out' | 'zoom-reset'
 
 /** 从 iTerm2 默认 Profile 读取的终端外观（暗色变体优先），用于让内嵌终端与用户的 iTerm 观感一致 */
 export interface ItermTheme {
@@ -94,6 +94,10 @@ export interface TerminalApi {
   restartTerminal(terminalId: string): Promise<WorkspaceState>
   setActiveTerminal(terminalId: string): Promise<WorkspaceState>
   write(terminalId: string, data: string): void
+  pasteImage(terminalId: string): Promise<boolean>
+  prepareDroppedFiles(terminalId: string, files: File[]): Promise<{ paths: string[]; copiedCount: number }>
+  hasLocalFiles(files: File[]): boolean
+  setTerminalFocused(terminalId: string, focused: boolean): void
   resize(terminalId: string, cols: number, rows: number): void
   onData(callback: (event: TerminalDataEvent) => void): () => void
   onExit(callback: (event: TerminalExitEvent) => void): () => void

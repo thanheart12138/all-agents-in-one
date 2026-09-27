@@ -2,10 +2,16 @@
 
 ## 当前阶段
 
-当前代码版本 v0.2.3（2026-09-24 本地打包）：当前／历史项目分组与 Ready 待查看提示已加入，arm64 DMG 已输出到 `release/0.2.3/` 并校验。后续根据实际使用反馈打磨，并准备签名发布。
+当前代码版本 v0.2.8（2026-09-27 本地打包）：针对中文长行右侧裁切，在 xterm 容器禁用 Chromium 的全角标点压缩。arm64 DMG 已输出到 `release/0.2.8/` 并校验；`/Applications` 中为 v0.2.7，尚未替换。当前安装包未签名、未公证。
+
+2026-09-27：源码修复 tmux 回看模式单击空白处无法退出的问题，已在当前运行中的 tmux 服务临时加载；修复已打入 v0.2.7 及后续本地安装包。
+
+2026-09-27：源码修复点击「重启」后键盘焦点留在按钮的问题；已打入 v0.2.7 本地 DMG，当前安装版为 v0.2.7。
 
 ## 已完成
 
+- 实现终端多文件拖入：项目内文件引用原路径，外部文件复制到 `.aao/attachments/` 的独立批次目录并加入 Git 忽略；路径经转义后通过 xterm 粘贴，不自动提交。显示导入结果与错误，拒绝文件夹和含控制字符的路径，保留原文件及附件副本。
+- 实现 Finder 文件 ⌘C／终端 ⌘V 导入，复用拖入附件的处理与提示；通过 preload 识别磁盘 File，普通文本及无磁盘路径的截图保留原有粘贴流程。
 - 明确 MVP 范围与 Electron 技术方案。
 - 建立 Electron、React、TypeScript 项目骨架。
 - 实现项目树、项目目录选择和配置持久化。
@@ -31,6 +37,11 @@
 - 内嵌终端主题自动同步 iTerm2 默认 Profile：字体、字号、16 个 ANSI 色、背景/前景/光标/选区色（iTerm 亮/暗双配色时取暗色变体）；修复 GUI 启动（无 LANG 环境）时 tmux 判定客户端不支持 UTF-8、把中文渲染为下划线的问题（node-pty 环境显式补 UTF-8 locale）。
 - 修复侧栏项目列表过长时无法滚动：限制侧栏及列表的最小高度，使列表在可用高度内独立滚动，底部终端计数保持可见；滚动条改为适配深色侧栏的细灰蓝滑块，鼠标移入时显示。
 - 修复全屏时终端内容从右侧和底部溢出：将终端间距放到 xterm 自身，使 FitAddon 计算行列数时扣除间距；终端外框与滚动区域同步 iTerm 主题底色，避免露出黑边。
+- 修复长行右侧内容显示不全：终端右侧增加留白并让 FitAddon 按可见宽度提前换行；拖选松开后保留选区，按 ⌘C 再复制到系统剪贴板。
+- v0.2.6 撤销拼音组合文字与输入法定位点的固定左上角坐标，恢复 xterm 按当前光标定位，保留主题背景和下划线。
+- 回看模式中单击松开退出并恢复输入，拖动选区和 ⌘C 复制继续可用；绑定写入应用生成的 tmux 配置。
+- 内嵌终端支持 ⌘+／⌘− 调整字号、⌘0 恢复主题默认字号；字号变化后立即重新计算行列并同步 tmux，限制字号范围为 8–40 点。
+- 隐藏会盖住行尾文字的 xterm 滑动块，保留 tmux 的滚轮回看；在终端区域用触控板双指捏合调整字号，普通滚动仍按原有终端行为处理。
 - 侧栏将项目分为「当前项目」和「历史项目」，支持拖动项目排序及跨组移动，并提供右键菜单移动入口；分组与顺序保存在工作区 JSON。旧项目首次载入归入历史项目，新添加项目归入当前项目。
 - 后台终端从 Running 转为 Ready 后，若用户尚未查看，在侧栏显示低干扰的「待查看」标记；打开会话后清除，未查看状态随工作区保存。
 - 使用 Node 内置测试运行器覆盖终端输入过滤、Kimi/Codex 状态解析、项目分组移动和 Ready 待查看判断；通过 `npm test` 运行，不增加依赖。
@@ -39,10 +50,13 @@
 
 ## 进行中
 
-- 无。
+- 中文长行右侧裁切修复已通过 typecheck、构建和打包，待在实际窗口验证；重启后的终端焦点修复也待实际窗口验证。
 
 ## 待办
 
+- 持续收集文件导入和终端交互反馈，并实测 v0.2.6 的 macOS 原生拼音候选窗。
+- 后续版本安装包需包含单击退出回看修复；尚未实现键盘输入时自动退出回看。
+- 隔离开发版与正式版的 tmux 服务及工作区数据，避免开发版热加载配置影响正式版。
 - 根据实际使用反馈继续打磨视觉与交互。
 - 配置 Apple Developer ID 签名和 notarization。
 
@@ -52,6 +66,19 @@
 
 ## 最近验证
 
+- 2026-09-27：上游 xterm.js 6 问题 #6058 记录 DOM 渲染器因 Chromium 的 `text-spacing-trim` 导致中文标点行宽测量漂移，右侧字符被裁切；本项目使用 xterm.js 6 的 DOM 渲染器，当前会话只有一个 tmux 客户端，因而先按上游已验证的 `.xterm { text-spacing-trim: space-all; }` 修复。v0.2.8 本地 arm64 DMG 已生成，`npm run typecheck`、`npm test`（22 项）、`npm run dist`、`hdiutil verify`、包内版本及 asar CSS 内容核对通过；SHA-256 为 `9c9437a0d29489b4f535d76ddb9f4cafe2da2c973a3039b30b30ef17ebb622b8`。实际窗口长行显示尚待复测。
+- 2026-09-27：v0.2.7 本地 arm64 DMG 生成于 `release/0.2.7/`。`npm run typecheck`、`npm test`（22 项）、`npm run dist`、`hdiutil verify`、包内版本号 0.2.7 和 `git diff --check` 均通过；SHA-256 为 `cd9169c3ff8c8b0a5a050ee0157f2a3b4f55b541b64346d50c2921dedf3c8ce4`。现已安装，重启后输入仍待正式窗口验证。
+- 2026-09-27：用户截图显示重启按钮仍有键盘焦点框，Shell 提示符已经出现；当前安装版 v0.2.5。源码在重启 IPC 返回后主动聚焦仍处于活动状态的 xterm。`npm run typecheck`、`npm run build`、`npm test`（22 项）通过；尚未在实际窗口复测，因此未列入已完成。
+- 2026-09-27：隔离 tmux 3.7b + node-pty 验证 `MouseUp1Pane` 绑定：普通单击退出回看，拖动保留选区，已选中后再单击可退出；隔离测试进程清理阶段出现 node-pty 退出异常，交互断言已通过。`npm test` 22 项、typecheck、build、diff 检查通过。运行中的正式版 tmux 服务已临时加载两条绑定，并核对 copy-mode 与 copy-mode-vi 均生效；未在用户当前会话发送按键或重新打包。
+- 2026-09-27：先用隔离 Electron 复现组合框位于屏幕上方，再移除 composition-view 和 textarea 的强制 left/top 样式。两档窗口（900×580、1360×860）、四档字号（8／14／24／40）和三个光标位置共 24 组检查通过：合成拼音 `nihao` 可见，组合框与输入法 textarea 坐标均跟随实际光标。typecheck、build、DMG 打包及 hdiutil verify 通过，asar 版本为 0.2.6 且已无错误定位样式。未连接正式版 tmux；原生输入法候选窗仍待用户实测。
+- 2026-09-26：v0.2.5 本地 arm64 DMG 打包完成，输出 `release/0.2.5/All Agents in One-0.2.5-arm64.dmg`（约 119 MiB）。22 项测试、typecheck、build 通过；沙箱内首次创建磁盘映像失败，获得环境权限后以已生成的 `.app` 完成 DMG 打包。`hdiutil verify` 通过；包内版本为 0.2.5、可执行文件为 arm64，asar 内主进程／preload／HTML 与本次构建一致，包含文件粘贴桥接。用户已确认文件复制粘贴试用通过。未安装、未签名公证、未公开发布。
+- 2026-09-26：文件粘贴功能的 22 项现有测试、typecheck、build、diff 检查通过；隔离 Electron 自动验证磁盘 File 的粘贴导入、普通文本粘贴、截图分流与原有拖入回归。另在 Finder 真实选择两个临时文件并 ⌘C，在使用独立用户数据与 tmux 服务的测试版中 ⌘V，界面确认「已复制 2 个文件到项目，路径已插入，尚未发送」。
+- 2026-09-26：文件拖入的 `npm test` 共 22 项通过，新增覆盖内部引用、外部复制、多文件同名与重复批次、原文件保持、Git 忽略、符号链接、非法输入和 shell 路径转义；`npm run typecheck`、`npm run build`、`git diff --check` 通过。独立 Electron 测试窗口使用临时用户数据、实际 sandbox preload、磁盘 File 对象、IPC 复制处理与真实 TerminalView/xterm，验证混合拖入、中文／空格／单引号路径、无回车提交、文件夹错误和提示关闭。输入接收端为模拟终端；未连接正式版 tmux，Finder 物理拖放尚未实测。
+- 2026-09-26：用户确认遮挡位置是右侧滑动块覆盖行尾。隔离 Electron 窗口加载实际 `TerminalView`，合成普通滚轮和捏合滚轮事件：普通滚轮不触发缩放，捏合向外／向内分别触发字号增／减，事件阻止浏览器缩放；xterm 滑动块样式为 `display: none`。三档窗口、四档字号的 xterm 边界复查通过；`npm test`、`npm run typecheck`、`npm run build`、`git diff --check` 通过。物理触控板仍待用户试用。
+- 2026-09-26：终端字号缩放在隔离 Electron 窗口中以 900×580、1360×860、2000×1100 三档窗口和 8／14／24／40 点字号检查 xterm 屏幕边界；最小窗口 40 点截图确认行尾中文完整显示。`npm test`、`npm run typecheck`、`npm run build`、`git diff --check` 通过；尚未在用户当前 tmux 会话中操作快捷键。
+- 2026-09-26：针对长行、拖选复制和拼音遮挡修复，隔离 Electron 窗口实测 xterm 屏幕右边界在容器内，拼音组合文字与输入法定位点位于屏幕上方；隔离 tmux 会话实测选区状态为 1、`copy-pipe-and-cancel pbcopy` 复制出预期内容、松开鼠标自动复制绑定已移除。`npm test` 16 项通过，`npm run typecheck`、`npm run build`、`git diff --check` 通过。尚未在用户当前会话中做真实鼠标和拼音输入操作。
+- 2026-09-25：版本升至 0.2.4，运行 `npm test`（16 项通过）、`npm run typecheck`、`npm run dist`；生成 `release/0.2.4/All Agents in One-0.2.4-arm64.dmg`，`hdiutil verify` 通过，包内版本为 0.2.4、架构为 arm64。打包未签名、未公证。
+- 2026-09-25：实现 Codex／Kimi 图片粘贴快捷键适配：活动终端中按 ⌘V 且剪贴板含图片时，应用向 CLI 发送其支持的 Ctrl+V，并让 CLI 自行缓存附件、显示图片占位符；纯文本粘贴保持 xterm 原行为。新增终端白名单与剪贴板 MIME 单测。16 项测试、`npm run typecheck`、`npm run build`、`git diff --check` 通过；开发版窗口已启动供用户试用，但应用内图片粘贴尚未端到端验证。
 - 2026-09-24：README 增加中文内容并保留英文版，涵盖功能、环境要求、开发、隐私和发布产物；人工核对双语章节对应，`git diff --check` 通过。
 - 2026-09-24：开源准备修订完成：README 补充功能、安装前置条件、数据处理说明与 DMG 路径；新增贡献指南、Apache NOTICE 和 GitHub Actions CI；锁定 package.json 依赖版本；Electron 启用 sandbox、限制导航与新窗口并校验 IPC 主框架；Kimi 用量接口只接受 HTTPS；替换截图里的真实外部仓库地址与提示文本。`npm test` 14 项通过，`npm run typecheck`、`npm run build`、离线 package-lock 同步通过。未打包、未提交或推送。
 - 2026-09-22：`npm run typecheck` 通过。

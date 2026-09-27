@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AppCommand, CliStatus, ItermTheme, ProjectDefinition, TerminalDefinition, WorkspaceState } from '../../shared/types'
-import { TerminalView, clearTerminalOutput, writeTerminalData } from './TerminalView'
+import { TerminalView, clearTerminalOutput, focusTerminal, writeTerminalData } from './TerminalView'
 import { CommandIcon } from './CommandIcon'
 
 const emptyWorkspace: WorkspaceState = { projects: [], activeTerminalId: null }
@@ -27,6 +27,7 @@ export function App(): React.JSX.Element {
   const [toast, setToast] = useState<string | null>(null)
   // undefined = 主题尚未加载完成（先不创建终端视图，避免用默认主题渲染后再重建）
   const [itermTheme, setItermTheme] = useState<ItermTheme | null | undefined>(undefined)
+  const [fontSizeOffset, setFontSizeOffset] = useState(0)
   const [cliStatuses, setCliStatuses] = useState<Record<string, CliStatus>>({})
   const [dragTarget, setDragTarget] = useState<string | null>(null)
 
@@ -36,6 +37,8 @@ export function App(): React.JSX.Element {
   const activeProject = activeTerminal
     ? workspace.projects.find((project) => project.id === activeTerminal.projectId) ?? null
     : workspace.projects[0] ?? null
+  const baseFontSize = itermTheme?.fontSize ?? 14
+  const terminalFontSize = Math.max(8, Math.min(40, baseFontSize + fontSizeOffset))
 
   useEffect(() => {
     const disposeData = window.terminalApi.onData(({ terminalId, data }) => writeTerminalData(terminalId, data))
@@ -66,7 +69,7 @@ export function App(): React.JSX.Element {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => { disposeCommand(); window.removeEventListener('keydown', handleKeyDown) }
-  }, [activeProject, activeTerminal, terminals])
+  }, [activeProject, activeTerminal, terminals, baseFontSize])
 
   useEffect(() => {
     if (!toast) return
@@ -84,6 +87,13 @@ export function App(): React.JSX.Element {
     if (command === 'close-terminal' && activeTerminal) setDialog({ kind: 'close-terminal', terminal: activeTerminal })
     if (command === 'restart-terminal' && activeTerminal) void restartTerminal(activeTerminal)
     if (command === 'rename-terminal' && activeTerminal) setDialog({ kind: 'rename-terminal', terminal: activeTerminal })
+    if (command === 'zoom-in') zoomTerminal('in')
+    if (command === 'zoom-out') zoomTerminal('out')
+    if (command === 'zoom-reset') setFontSizeOffset(0)
+  }
+
+  function zoomTerminal(direction: 'in' | 'out'): void {
+    setFontSizeOffset((offset) => Math.max(8 - baseFontSize, Math.min(40 - baseFontSize, offset + (direction === 'in' ? 1 : -1))))
   }
 
   async function addProject(): Promise<void> {
@@ -127,7 +137,12 @@ export function App(): React.JSX.Element {
   }
 
   async function restartTerminal(terminal: TerminalDefinition): Promise<void> {
-    try { clearTerminalOutput(terminal.id); setWorkspace(await window.terminalApi.restartTerminal(terminal.id)) } catch (error) { showError(error) }
+    try {
+      clearTerminalOutput(terminal.id)
+      const state = await window.terminalApi.restartTerminal(terminal.id)
+      setWorkspace(state)
+      if (state.activeTerminalId === terminal.id) focusTerminal(terminal.id)
+    } catch (error) { showError(error) }
   }
 
   async function moveProject(projectId: string, current: boolean, beforeProjectId?: string): Promise<void> {
@@ -210,7 +225,7 @@ export function App(): React.JSX.Element {
             <span className={`seg seg-status ${activeTerminal.status}`}>{statusLabels[activeTerminal.status]}</span>
           </div>
           <header className="terminal-header"><div className="terminal-heading"><span className={`header-status ${activeTerminal.status}`} /><div><strong>{activeTerminal.name}</strong><span>{activeProject?.path}</span></div></div><div className="header-actions"><button onClick={() => void openTerminal(activeTerminal)} title="在 iTerm2 窗口中接管此会话">iTerm</button><button onClick={() => setDialog({ kind: 'rename-terminal', terminal: activeTerminal })}>重命名</button><button onClick={() => void restartTerminal(activeTerminal)}>重启</button><button className="danger" onClick={() => setDialog({ kind: 'close-terminal', terminal: activeTerminal })}>关闭</button></div></header>
-          <div className="terminal-stage">{itermTheme !== undefined && terminals.map((terminal) => <TerminalView key={terminal.id} terminalId={terminal.id} active={terminal.id === activeTerminal.id} status={terminal.status} error={terminal.error} itermTheme={itermTheme} />)}</div>
+          <div className="terminal-stage">{itermTheme !== undefined && terminals.map((terminal) => <TerminalView key={terminal.id} terminalId={terminal.id} terminalName={terminal.name} active={terminal.id === activeTerminal.id} status={terminal.status} error={terminal.error} itermTheme={itermTheme} fontSize={terminalFontSize} onZoom={zoomTerminal} />)}</div>
         </> : <div className="welcome"><div className="welcome-mark">›_</div><h2>All Agents in One</h2><p>{workspace.projects.length ? '创建一个终端，然后直接输入命令。' : <>把 Codex、Claude Code 和普通 Shell<br />放进同一个项目工作台。</>}</p><button onClick={() => activeProject ? void createTerminal(activeProject) : void addProject()}>{activeProject ? '新建终端' : '添加项目'}</button></div>}
       </section>
 

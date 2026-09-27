@@ -23,6 +23,7 @@
 - `src/shared/`：跨进程共享类型。
 - `tests/`：Node 内置测试运行器的单元测试。
 - `.github/workflows/`：仓库 CI 工作流。
+- 拖入或从 Finder 复制粘贴的附件统一由 `src/main/file-drop.ts` 处理：项目内文件引用原路径，外部文件复制到目标项目 `.aao/attachments/<batch>/`；该目录只存附件副本，加入目标项目 Git 忽略，保留到用户主动清理。剪贴板文件通过 preload 的 `webUtils.getPathForFile` 识别，无磁盘路径的截图保留原有图片粘贴行为。
 
 ## 验证要求
 

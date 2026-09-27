@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -8,6 +8,7 @@ import * as pty from 'node-pty'
 import { hasMeaningfulTerminalOutput, isTerminalControlResponse, sanitizeTerminalInputChunk } from './input-parser'
 import {
   capturePaneContent,
+  copyTmuxSelection,
   hasTmuxSession,
   initializeTmux,
   isTmuxAvailable,
@@ -23,6 +24,8 @@ import { parseCliStatus } from './cli-status'
 import { moveProject, shouldMarkReadyForAttention } from './workspace-logic'
 import { getCodexQuota, getKimiQuota, startQuotaPolling } from './quota'
 import { isAllowedRendererUrl } from './security-utils'
+import { supportsImageClipboardPaste } from '../shared/image-paste'
+import { prepareDroppedFiles } from './file-drop'
 import type {
   CliStatus,
   CreateTerminalInput,
@@ -37,6 +40,7 @@ const activityTimers = new Map<string, NodeJS.Timeout>()
 const cliStatuses = new Map<string, CliStatus>()
 let cliStatusPoller: NodeJS.Timeout | null = null
 let mainWindow: BrowserWindow | null = null
+let focusedTerminalId: string | null = null
 let workspace: WorkspaceState = { projects: [], activeTerminalId: null }
 
 app.setName('All Agents in One')
@@ -453,12 +457,32 @@ function registerIpc(): void {
     return workspace
   })
 
+  handle('terminal:prepare-files', (_event, terminalId: string, paths: unknown) => {
+    const found = findTerminal(terminalId)
+    if (!found || !sessions.has(terminalId)) throw new Error('终端未连接，无法插入文件')
+    return prepareDroppedFiles(found.project.path, paths)
+  })
+
+  handle('terminal:paste-image', (_event, terminalId: string) => {
+    const found = findTerminal(terminalId)
+    if (!found || !sessions.has(terminalId) || !supportsImageClipboardPaste(found.terminal.name)) return false
+    if (clipboard.readImage().isEmpty()) return false
+    sessions.get(terminalId)?.write('\x16')
+    return true
+  })
+
   ipcMain.on('terminal:write', (event, terminalId: string, data: string) => {
     if (!isTrustedSender(event)) return
     sessions.get(terminalId)?.write(data)
     const found = findTerminal(terminalId)
     if (found && (data.includes('\r') || data.includes('\n'))) beginTerminalRun(found.terminal)
     captureTerminalInput(terminalId, data)
+  })
+
+  ipcMain.on('terminal:focus', (event, terminalId: string, focused: boolean) => {
+    if (!isTrustedSender(event)) return
+    if (focused && findTerminal(terminalId)) focusedTerminalId = terminalId
+    else if (!focused && focusedTerminalId === terminalId) focusedTerminalId = null
   })
 
   ipcMain.on('terminal:resize', (event, terminalId: string, cols: number, rows: number) => {
@@ -489,9 +513,17 @@ function createWindow(): void {
     if (!isAllowedRendererUrl(url, process.env.ELECTRON_RENDERER_URL, packagedRendererUrl)) event.preventDefault()
   })
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || !input.meta || input.control || input.alt || input.shift || input.key.toLowerCase() !== 'c') return
+    const terminal = focusedTerminalId && focusedTerminalId === workspace.activeTerminalId
+      ? findTerminal(focusedTerminalId)?.terminal
+      : null
+    if (terminal?.tmuxSessionName && copyTmuxSelection(terminal.tmuxSessionName)) event.preventDefault()
+  })
 
   mainWindow.on('closed', () => {
     mainWindow = null
+    focusedTerminalId = null
   })
 
   // 窗口重新获得焦点时刷新一次分支（用户可能在外部切换了分支）
@@ -548,7 +580,11 @@ function createApplicationMenu(): void {
       label: '终端',
       submenu: [
         { label: '重启终端', accelerator: `${modifier}+Shift+R`, click: () => sendCommand('restart-terminal') },
-        { label: '重命名终端', accelerator: 'F2', click: () => sendCommand('rename-terminal') }
+        { label: '重命名终端', accelerator: 'F2', click: () => sendCommand('rename-terminal') },
+        { type: 'separator' },
+        { label: '放大字体', accelerator: `${modifier}+Plus`, click: () => sendCommand('zoom-in') },
+        { label: '缩小字体', accelerator: `${modifier}+-`, click: () => sendCommand('zoom-out') },
+        { label: '恢复默认字体大小', accelerator: `${modifier}+0`, click: () => sendCommand('zoom-reset') }
       ]
     },
     { label: '窗口', submenu: [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }] }
