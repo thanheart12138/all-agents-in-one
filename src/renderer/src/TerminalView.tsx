@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { bindTerminalSelection } from './terminal-selection'
 import { containsClipboardImage, supportsImageClipboardPaste } from '../../shared/image-paste'
 import { formatDroppedPaths } from '../../shared/file-drop'
 import type { ItermTheme, TerminalStatus } from '../../shared/types'
@@ -132,6 +133,7 @@ export function TerminalView({ terminalId, terminalName, active, status, error, 
     const fitAddon = new FitAddon()
     terminal.loadAddon(fitAddon)
     terminal.open(containerRef.current)
+    const disposeSelection = bindTerminalSelection(terminal)
     const handlePaste = (event: ClipboardEvent): void => {
       const clipboardData = event.clipboardData
       if (!activeRef.current || !clipboardData) return
@@ -194,6 +196,7 @@ export function TerminalView({ terminalId, terminalName, active, status, error, 
       containerRef.current?.removeEventListener('paste', handlePaste, true)
       containerRef.current?.removeEventListener('wheel', handlePinch, true)
       observer.disconnect()
+      disposeSelection()
       writers.delete(terminalId)
       clearers.delete(terminalId)
       focusers.delete(terminalId)

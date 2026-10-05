@@ -75,6 +75,12 @@ export interface CliStatus {
   total?: string
   /** 累计花费（kimi 新版状态行） */
   cost?: string
+  /** 本机实时指标与当前项目变更，不持久化 */
+  cpu?: string
+  memory?: string
+  upload?: string
+  download?: string
+  gitChanges?: string
 }
 
 export interface TerminalApi {

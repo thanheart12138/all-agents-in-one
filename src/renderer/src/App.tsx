@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import type { AppCommand, CliStatus, ItermTheme, ProjectDefinition, TerminalDefinition, WorkspaceState } from '../../shared/types'
 import { TerminalView, clearTerminalOutput, focusTerminal, writeTerminalData } from './TerminalView'
 import { CommandIcon } from './CommandIcon'
@@ -190,7 +190,7 @@ export function App(): React.JSX.Element {
       <section className="workspace">
         {activeTerminal ? <>
           <div className="cli-statusbar">
-            <span className="seg seg-project">[<em>{activeProject?.name}</em>]{activeProject?.gitBranch && <i>({activeProject.gitBranch})</i>}</span>
+            <span className="seg seg-project">[<em>{activeProject?.name}</em>]{activeProject?.gitBranch && <i>({activeProject.gitBranch}{cliStatuses[activeTerminal.id]?.gitChanges})</i>}</span>
             <span className="sep">|</span>
             <span className="seg"><label>CLI:</label>{activeTerminal.name}</span>
             {cliStatuses[activeTerminal.id]?.total && <>
@@ -203,11 +203,11 @@ export function App(): React.JSX.Element {
             </>}
             {cliStatuses[activeTerminal.id]?.fiveHour && <>
               <span className="sep">|</span>
-              <span className="seg"><label>5h:</label>{cliStatuses[activeTerminal.id].fiveHour}</span>
+              <span className="seg"><label>5h 已用:</label>{cliStatuses[activeTerminal.id].fiveHour}</span>
             </>}
             {cliStatuses[activeTerminal.id]?.weekly && <>
               <span className="sep">|</span>
-              <span className="seg"><label>7d:</label>{cliStatuses[activeTerminal.id].weekly}</span>
+              <span className="seg"><label>{cliStatuses[activeTerminal.id].weekly?.includes('left') ? '7d 剩余:' : '7d 已用:'}</label>{cliStatuses[activeTerminal.id].weekly}</span>
             </>}
             {cliStatuses[activeTerminal.id]?.model && <>
               <span className="sep">|</span>
@@ -217,8 +217,10 @@ export function App(): React.JSX.Element {
               <span className="sep">|</span>
               <span className="seg"><label>ctx:</label>{cliStatuses[activeTerminal.id].context}</span>
             </>}
-            <span className="sep">|</span>
-            <span className="seg"><label>tmux:</label>{activeTerminal.tmuxSessionName ?? '—'}</span>
+            {(['cpu', 'memory', 'upload', 'download'] as const).map((key) => cliStatuses[activeTerminal.id]?.[key] && <Fragment key={key}>
+              <span className="sep">|</span>
+              <span className="seg" title="整台 Mac 的实时指标；内存为总量减空闲、非活动及推测页，网络按非回环接口合计"><label>{{ cpu: 'CPU:', memory: 'Mem:', upload: '↑', download: '↓' }[key]}</label>{cliStatuses[activeTerminal.id][key]}</span>
+            </Fragment>)}
             <span className="sep">|</span>
             <span className="seg seg-input"><label>最近输入:</label>{activeTerminal.lastUserMessage || '—'}</span>
             <span className="sep">|</span>

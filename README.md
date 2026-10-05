@@ -4,18 +4,23 @@
 
 All Agents in One 是一个本地桌面工作台，用项目组织 CLI Agent 会话。项目使用 Electron、React、xterm.js、node-pty 和 tmux。
 
+![All Agents in One 工作台：项目分组、多终端会话与实时状态栏](pic/workspace.png)
+
 ### 功能
 
 - 将项目分为「当前项目」和「历史项目」，支持拖动排序及跨组移动。
-- 每个项目运行多个终端会话；切换会话时，后台会话继续运行。
-- 通过 tmux 在应用重启后恢复终端会话。
-- 后台会话变为 Ready、用户尚未查看时，显示低干扰的「待查看」标记。
+- 每个项目运行多个终端会话，切换时后台会话继续运行；通过 tmux 在应用重启后恢复，也可在 iTerm2 中接入同一会话。
+- 显示 Ready／Running 状态和最近输入；后台会话完成后，用户尚未查看时显示「待查看」标记。
+- 状态栏显示项目、Git 分支与变更统计、CLI、可识别的模型配置和上下文、额度及重置倒计时；有数据时显示累计 Token 和花费。无法识别的字段自动隐藏。
+- Model 配置统一用 `/` 分隔，例如 `gpt-6.1-sol/low/fast`、`kimi-code/k3/high/auto`，保留模型名大小写。Kimi 原生 thinking 指示器显示为 `/thinking:on` 或 `/thinking:off`，缺失时不推断。
+- 显示整台 Mac 的 CPU、估算已用内存和上传／下载速率，约每 3 秒刷新；不可用的指标自动隐藏，状态栏空间不足时换行。
+- 支持终端文字拖选与 ⌘C 复制，终端主题自动同步 iTerm2 默认 Profile。
 - 在 Codex 或 Kimi 终端中按 ⌘V 粘贴剪贴板图片；CLI 会缓存图片并在输入框显示图片占位标记（需所选模型支持图片输入）。
 - 用 ⌘+、⌘− 或在终端区域双指捏合调整字号，⌘0 恢复 iTerm2 配置的字号（未配置时为 14 点）。
-- 将本地文件拖入终端可插入路径，支持多文件，不自动回车。项目外文件会复制到当前项目 `.aao/attachments/` 的独立批次目录，并自动添加 Git 忽略；项目内文件直接引用。附件副本保留到手动清理，不与原文件同步，暂不支持文件夹。此功能需使用包含该改动的新构建。
+- 将本地文件拖入终端可插入路径，支持多文件，不自动回车。项目外文件会复制到当前项目 `.aao/attachments/` 的独立批次目录，并自动添加 Git 忽略；项目内文件直接引用。附件副本保留到手动清理，不与原文件同步，暂不支持文件夹。
 - 支持在 Finder 选中文件后按 ⌘C，再到终端按 ⌘V，使用与拖入相同的文件导入流程；复制图片文件也按文件导入，截图和普通文字保留原有粘贴行为。
-- 可选地在 iTerm2 中接入同一个 tmux 会话。
-- 显示 Git 分支；识别到 CLI 状态信息时尽力显示，无法识别则隐藏对应信息。
+
+Git 变更统计显示未提交标记、相对 HEAD 的新增／删除行数和未跟踪文件数，不计未跟踪文件内容或二进制行数。额度从 Kimi HTTPS 接口或 Codex 本地快照获取，显示已用比例；重置时间可用时持续倒计时。内存为估算已用量，网络速率按非回环接口合计。
 
 ### 环境要求
 
@@ -52,7 +57,7 @@ Codex 用量信息从本机 `~/.codex/sessions/` 下的近期文件读取。Kimi
 
 ### 发布产物
 
-DMG 保存在 `release/<版本号>/`，例如 `release/0.2.3/All Agents in One-0.2.3-arm64.dmg`。目前只打包 DMG。
+当前版本为 **v0.2.9**，本地 arm64 DMG 位于 `release/0.2.9/All Agents in One-0.2.9-arm64.dmg`。目前只打包 DMG；安装包未签名、未公证。
 
 ## English
 
@@ -61,15 +66,18 @@ All Agents in One is a local desktop workspace for organizing CLI agent sessions
 ## Features
 
 - Organize projects into 「当前项目」 and 「历史项目」, with drag and drop to reorder or move between groups.
-- Run multiple terminal sessions per project and switch between them while background sessions continue running.
-- Persist terminal sessions through tmux across application restarts.
-- Show a low-key 「待查看」 marker when a background session becomes ready before you return to it.
+- Run multiple terminal sessions per project while background sessions continue running. Restore sessions through tmux across application restarts, or attach to the same session in iTerm2.
+- Display Ready/Running states and recent input, with a low-key 「待查看」 marker for completed background sessions you have not viewed.
+- The status bar shows the project, Git branch and changes, CLI, recognizable model settings and context, quotas and reset countdowns. Total tokens and cost appear when available; unrecognized fields are hidden.
+- Model uses `/` to separate recognized settings, such as `gpt-6.1-sol/low/fast` and `kimi-code/k3/high/auto`, preserving model-name casing. Kimi's native thinking indicators appear as `/thinking:on` or `/thinking:off`; missing modes are not inferred.
+- Show whole-Mac CPU, estimated used memory, and upload/download rates, refreshed about every 3 seconds. Unavailable metrics are hidden, and the status bar wraps when space is limited.
+- Select terminal text by dragging and copy with ⌘C. The terminal theme follows the default iTerm2 profile.
 - Press ⌘V in a Codex or Kimi terminal to paste a clipboard image; the CLI caches it and shows an image placeholder (the selected model must support image input).
-- Drop local files into a terminal to insert quoted paths without submitting. External files are copied into batch folders under the project's `.aao/attachments/`, which is automatically added to `.gitignore`; internal files are referenced directly. Copies persist until manually removed and do not sync with originals. Multiple files are supported; folders are not. Requires a build containing this change.
+- Drop local files into a terminal to insert quoted paths without submitting. External files are copied into batch folders under the project's `.aao/attachments/`, which is automatically added to `.gitignore`; internal files are referenced directly. Copies persist until manually removed and do not sync with originals. Multiple files are supported; folders are not.
 - Copy files in Finder with ⌘C and paste into a terminal with ⌘V to use the same import flow. Copied image files are imported as files; screenshots and plain text keep their existing paste behavior.
 - Use ⌘+, ⌘−, or a two-finger pinch over the terminal to change its font size, and ⌘0 to restore the iTerm2 profile size (14 pt when unavailable).
-- Optionally attach to the same tmux session in iTerm2.
-- Display Git branches and best-effort CLI status information when recognizable.
+
+Git statistics show dirty state, added/deleted lines relative to HEAD, and untracked file counts, excluding untracked contents and binary line counts. Quotas come from the Kimi HTTPS endpoint or local Codex snapshots and show used percentages, with continuously updated reset countdowns when timestamps are available. Memory is an estimate of used memory; network rates aggregate non-loopback interfaces.
 
 ## Requirements
 
@@ -106,4 +114,4 @@ Terminal commands and session contents remain on the local machine, except for n
 
 ## Release artifacts
 
-DMGs are placed in `release/<version>/`, for example `release/0.2.3/All Agents in One-0.2.3-arm64.dmg`. Packaging currently targets DMG only.
+The current version is **v0.2.9**. The local arm64 DMG is at `release/0.2.9/All Agents in One-0.2.9-arm64.dmg`. Packaging targets DMG only; the artifact is unsigned and not notarized.

@@ -2,14 +2,23 @@
 
 ## 当前阶段
 
-当前代码版本 v0.2.8（2026-09-27 本地打包）：针对中文长行右侧裁切，在 xterm 容器禁用 Chromium 的全角标点压缩。arm64 DMG 已输出到 `release/0.2.8/` 并校验；`/Applications` 中为 v0.2.7，尚未替换。当前安装包未签名、未公证。
+2026-10-05：处于终端交互修复与实际窗口验证阶段。源码版本为 v0.2.9；9 月 30 日的左键拖选、原生 ⌘C 复制及重复鼠标协议下的选区保留修复已通过隔离回归并进入本次安装包，尚待真实 Codex 交互复测。新建 Codex 光标错位仍待定位。
 
-2026-09-27：源码修复 tmux 回看模式单击空白处无法退出的问题，已在当前运行中的 tmux 服务临时加载；修复已打入 v0.2.7 及后续本地安装包。
+2026-10-05：状态栏 Git 变更统计、完整模型配置与 `/` 格式、Kimi／Codex 额度重置倒计时及整机指标已打入 v0.2.9 arm64 DMG。37 项测试、类型检查、构建、DMG 校验及包内文件核对通过；实际窗口布局与网络采集待验证。
 
-2026-09-27：源码修复点击「重启」后键盘焦点留在按钮的问题；已打入 v0.2.7 本地 DMG，当前安装版为 v0.2.7。
+最新本地安装包为 2026-10-05 的 `release/0.2.9/All Agents in One-0.2.9-arm64.dmg`，保留此前中文长行、单击退出回看及重启聚焦修复，并包含本次状态栏与拖选改动。尚未替换正式安装版，安装包未签名、未公证。
+
+正式安装版最后记录为 v0.2.7；2026-10-05 未重新核验 `/Applications` 中的版本、运行中的应用或隔离测试版状态。
 
 ## 已完成
 
+- README 加入用户提供的真实工作台截图（`pic/workspace.png`），整理中英文功能说明，更新 v0.2.9 本地产物信息并移除过时的构建提示；图片引用、原文件一致性及文档格式检查通过。
+- v0.2.9 本地 arm64 DMG 打包与产物校验；版本文件同步，37 项测试、类型检查、构建、`hdiutil verify`、包内版本与 5 个构建文件一致性核对通过。
+- Model 解析保留 Codex 原生配置与 Codex／Kimi 富状态行中的完整配置，统一用 `/` 分隔（如 `gpt-6.1-sol/low/fast`），保留模型名大小写；按 Kimi 官方状态栏的 `●`／`○` 显示 `/thinking:on`／`thinking:off`，模式缺失时不推断。解析回归、类型检查和构建通过，真实窗口显示待复测。
+- Kimi 5h／7d 重置时间解析：按官方 `/usage` 实现读取 ISO 时间及剩余秒数，转换为 Unix 秒并接入现有状态栏倒计时；兼容已有比例格式与 `limits[].detail`／`usage` 格式。34 项测试、类型检查、构建通过；真实接口与窗口验证另列进行中。
+- 状态栏采集与解析：只读统计当前项目 Git 变更，修正 Codex 富状态行被误判为 Kimi；保留完整模型配置，按 Codex 额度快照重置时间计算倒计时；采集整机 CPU、估算已用内存及网络速率。单元测试、类型检查与构建通过，实际窗口及受限环境网络采集另列待验证。
+- 应用内普通左键拖选由 xterm 管理，支持中文、跨行和反向选择，原生复制写入系统剪贴板；单击仍发送 CLI 鼠标按下／松开，滚轮保留原行为，⌘C 不转换为 Ctrl+C。
+- 修复 CLI 重复启用鼠标协议导致 xterm 选区消失：解析完成后核对选中文字并保留未变化的选区，已变化的内容不会按旧坐标重新选中；补上快速拖选只收到松手坐标时的拖动判断。
 - 实现终端多文件拖入：项目内文件引用原路径，外部文件复制到 `.aao/attachments/` 的独立批次目录并加入 Git 忽略；路径经转义后通过 xterm 粘贴，不自动提交。显示导入结果与错误，拒绝文件夹和含控制字符的路径，保留原文件及附件副本。
 - 实现 Finder 文件 ⌘C／终端 ⌘V 导入，复用拖入附件的处理与提示；通过 preload 识别磁盘 File，普通文本及无磁盘路径的截图保留原有粘贴流程。
 - 明确 MVP 范围与 Electron 技术方案。
@@ -46,26 +55,42 @@
 - 后台终端从 Running 转为 Ready 后，若用户尚未查看，在侧栏显示低干扰的「待查看」标记；打开会话后清除，未查看状态随工作区保存。
 - 使用 Node 内置测试运行器覆盖终端输入过滤、Kimi/Codex 状态解析、项目分组移动和 Ready 待查看判断；通过 `npm test` 运行，不增加依赖。
 - 项目树在 Git 仓库目录旁显示分支徽标（直读 `.git/HEAD`，支持 worktree 与 detached HEAD，启动时解析、每 30 秒轮询、窗口聚焦时刷新）。
-- 顶部 CLI 状态栏：`[项目名](分支) | CLI | Total | Cost | 5h | 7d | Model | ctx | tmux 会话 | 最近输入 | Ready/Running 状态`。其中 Model/ctx/Total/Cost 由 tmux capture-pane 只读抓取终端屏幕解析（支持 Kimi Code 新旧状态行与 Codex 状态行，识别不出自动隐藏，不耦合 CLI 内部协议）；5h/7d 额度由主进程直读（借鉴 token-tracker）：Kimi 走云端 `GET <base_url>/usages`（OAuth 凭证 `~/.kimi/credentials/kimi-code.json`，120 秒缓存、15 分钟失效），Codex 扫 `~/.codex/sessions/` 最近 5 个 jsonl 的 `token_count` 事件限额快照（纯本地、30 秒刷新），均为「已用百分比」，失败自动隐藏分段。
+- 顶部 CLI 状态栏：`[项目名](分支) | CLI | Total | Cost | 5h | 7d | Model | ctx | 最近输入 | Ready/Running 状态`。其中 Model/ctx/Total/Cost 由 tmux capture-pane 只读抓取终端屏幕解析（支持 Kimi Code 新旧状态行与 Codex 状态行，识别不出自动隐藏，不耦合 CLI 内部协议）；5h/7d 额度由主进程直读（借鉴 token-tracker）：Kimi 走云端 `GET <base_url>/usages`（OAuth 凭证 `~/.kimi/credentials/kimi-code.json`，120 秒缓存、15 分钟失效），Codex 扫 `~/.codex/sessions/` 最近 5 个 jsonl 的 `token_count` 事件限额快照（纯本地、30 秒刷新），均为「已用百分比」，失败自动隐藏分段。
 
 ## 进行中
 
+- Kimi 额度重置倒计时待真实接口及窗口复测：当前执行环境请求 Kimi `/usages` 因 DNS `ENOTFOUND` 未完成；已依据官方源码核对字段并通过模拟响应回归，隔离测试构建及 v0.2.9 DMG 已包含，未替换正式安装版。
+- 新增状态栏的实际窗口布局及网络速率待验证；当前执行沙箱拒绝 netstat 网络计数读取，指标不可用时隐藏。隔离 Electron 进程启动退出码为 134，未完成窗口回归，未连接正式 tmux。
+- 左键拖选、原生复制及重复鼠标协议下的选区保留已通过隔离回归并包含于 v0.2.9 安装包，待真实 Codex 窗口复测。
+- 新建 Codex 光标错位待定位，尚无已验证的修复。
 - 中文长行右侧裁切修复已通过 typecheck、构建和打包，待在实际窗口验证；重启后的终端焦点修复也待实际窗口验证。
 
 ## 待办
 
-- 持续收集文件导入和终端交互反馈，并实测 v0.2.6 的 macOS 原生拼音候选窗。
-- 后续版本安装包需包含单击退出回看修复；尚未实现键盘输入时自动退出回看。
+- 持续收集文件导入和终端交互反馈，并实测当前构建的 macOS 原生拼音候选窗定位（修复自 v0.2.6 起包含）。
+- 实现键盘输入时自动退出 tmux 回看；单击退出回看已进入 v0.2.7 及后续安装包。
 - 隔离开发版与正式版的 tmux 服务及工作区数据，避免开发版热加载配置影响正式版。
 - 根据实际使用反馈继续打磨视觉与交互。
 - 配置 Apple Developer ID 签名和 notarization。
 
 ## 阻塞
 
-- 无。
+- 2026-10-05：重试后 `git add` 成功，本地暂存权限已恢复；远端检查仍无法连接 GitHub SSH 端口（Operation not permitted），推送尚未完成。本地 DMG 和文档更新已完成。
 
 ## 最近验证
 
+- 2026-10-05：按用户要求重试 Git 操作，包含 README 截图和 v0.2.9 改动的 `git add` 成功；`git ls-remote --heads origin main` 仍因 GitHub SSH 端口连接被拒绝而失败。
+- 2026-10-05：按用户提供的真实截图更新 README，图片原样复制到 `pic/workspace.png`，核对相对引用有效、PNG 尺寸及字节与原图一致；中英文功能说明与 v0.2.9 产物路径对应，`git diff --check` 通过。截图可见 Git 变更、`GPT-6.1-Sol/low/fast`、Codex 周额度倒计时、上下文、CPU／内存与网络指标；不据此宣称 Kimi 实测或终端全生命周期回归通过。提交与推送因环境权限限制未完成。
+- 2026-10-05：v0.2.9 本地 arm64 DMG 打包成功，37 项测试、typecheck、dist（含 build）、`hdiutil verify` 通过；包内版本为 0.2.9、主程序为 arm64，asar 内 5 个构建文件与本次 `out/` 完全一致。DMG SHA-256：`2e7840d897a6ca025a5bcac13601231973d71c5d863bcd83fb8e36a881d8a838`。未安装或创建公开发布；远端检查被环境阻止连接 GitHub SSH 端口。
+- 2026-10-05：Model 配置显示统一改为 `/` 分隔，回归覆盖 Codex 原生空格、富状态行混合分隔、Kimi thinking 开关与模型名大小写保留。`npm test`（37 项）、typecheck、build、`git diff --check` 通过，隔离测试版构建已同步；实际窗口待复测，未重新打包安装。
+- 2026-10-05：核对 [Kimi 官方 prompt.py](https://github.com/MoonshotAI/kimi-cli/blob/main/src/kimi_cli/ui/shell/prompt.py) 的模型名与 thinking 指示器渲染。修复 Codex 仅取模型首词的问题，并保留富状态行的空格配置；新增回归覆盖分隔符、配置空格、模型名、thinking 开关、缺失指示器及窄屏隐藏模型，不将路径或后续状态字段拼入 Model。`npm test`（37 项）、typecheck、build、`git diff --check` 通过；已同步隔离测试版主进程构建，未完成真实窗口复测或重新打包安装。
+- 2026-10-05：核对本机 Kimi CLI 与 [官方 usage.py](https://github.com/MoonshotAI/kimi-cli/blob/main/src/kimi_cli/ui/shell/usage.py) 中的请求方法、Bearer 鉴权、`limits[].detail`／`usage` 层级及 `_reset_hint` 字段；补齐 Kimi 重置时间解析。新增 5 项回归覆盖 5h／7d 分别取值、时间字段别名、纳秒 ISO 时间、剩余秒数换算、缓存倒计时、缺失／非法／过期时间与比例格式兼容。`npm test`（34 项）、typecheck、build、`git diff --check` 通过；真实请求 DNS 失败，未宣称真实接口或窗口验证通过。
+- 2026-10-05：按用户要求移除顶部状态栏的 tmux 会话字段及其分隔符，保留 tmux 会话管理与 iTerm 接入。`npm run typecheck`、`npm run build`、`git diff --check` 通过；未重新打包或替换安装版。
+- 2026-10-05：状态栏新增测试覆盖 Codex 富状态行来源、完整模型配置、倒计时边界、Git 暂存与未暂存合并统计、重命名及二进制统计、网络接口去重和内存口径。`npm test`（29 项）、typecheck、build 通过。当前仓库 Git 变更及本机 vm_stat 采集成功；网络读取被沙箱拒绝，隔离 Electron 启动退出码 134，未完成实际窗口验证。未打包、安装或连接正式 tmux。
+- 2026-10-05：文档状态核对，确认 `package.json` 源码版本为 0.2.8，源码包含拖选处理器、中文标点宽度样式和单击退出回看绑定；整理当前阶段、进行中及待办，保留既有验证记录。仅更新文档，未重新运行功能测试、打包或核验安装版。
+- 2026-09-30：先在隔离 Electron 复现重复鼠标协议设置后 `getSelection()` 变为空，再验证修复后鼠标模式关闭／启用时保留选区、选中文字变化时清除且后续重绘不恢复；原生剪贴板、反向／中文跨行选择、单击和滚轮回归通过。新增回归测试覆盖内容变化、选区外输出、输入／缩放／滚动清除、快速松手与监听器释放。typecheck、build、`npm test`（23 项）通过。原隔离测试版沿用独立数据及 tmux 会话更新重启，页面加载成功；正式安装版未替换。
+- 2026-09-30：`npm run typecheck`、`npm run build`、`npm test`（22 项）通过。隔离 Electron 加载实际选区处理器与 xterm，模拟 CLI 开启鼠标报告：普通及反向拖选、中文跨行、原生复制到系统剪贴板、无选区 ⌘C 不发送中断、单击按下／松开、滚轮转发和事件清理均通过。测试未连接正式 tmux；当前安装版尚未更新，真实 Codex 窗口仍待复测。
+- 2026-09-28：按用户要求撤除未通过实际点击验证的「发送记录／跳转原聊天」功能；源码、测试和 README 已移除，未改动现有终端会话数据。
 - 2026-09-27：上游 xterm.js 6 问题 #6058 记录 DOM 渲染器因 Chromium 的 `text-spacing-trim` 导致中文标点行宽测量漂移，右侧字符被裁切；本项目使用 xterm.js 6 的 DOM 渲染器，当前会话只有一个 tmux 客户端，因而先按上游已验证的 `.xterm { text-spacing-trim: space-all; }` 修复。v0.2.8 本地 arm64 DMG 已生成，`npm run typecheck`、`npm test`（22 项）、`npm run dist`、`hdiutil verify`、包内版本及 asar CSS 内容核对通过；SHA-256 为 `9c9437a0d29489b4f535d76ddb9f4cafe2da2c973a3039b30b30ef17ebb622b8`。实际窗口长行显示尚待复测。
 - 2026-09-27：v0.2.7 本地 arm64 DMG 生成于 `release/0.2.7/`。`npm run typecheck`、`npm test`（22 项）、`npm run dist`、`hdiutil verify`、包内版本号 0.2.7 和 `git diff --check` 均通过；SHA-256 为 `cd9169c3ff8c8b0a5a050ee0157f2a3b4f55b541b64346d50c2921dedf3c8ce4`。现已安装，重启后输入仍待正式窗口验证。
 - 2026-09-27：用户截图显示重启按钮仍有键盘焦点框，Shell 提示符已经出现；当前安装版 v0.2.5。源码在重启 IPC 返回后主动聚焦仍处于活动状态的 xterm。`npm run typecheck`、`npm run build`、`npm test`（22 项）通过；尚未在实际窗口复测，因此未列入已完成。

@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { getSecureKimiQuotaUrl } from './security-utils'
+import { parseKimiUsages } from './kimi-quota'
 
 /**
  * CLI 账号额度直读（借鉴 token-tracker 的取数方式，不依赖终端屏幕内容）：
@@ -19,6 +20,8 @@ export interface Quota {
   fiveHour?: string
   /** 7 天窗口已用百分比，如 "68%" */
   weekly?: string
+  fiveHourResetsAt?: number
+  weeklyResetsAt?: number
 }
 
 const KIMI_REFRESH_MS = 120_000
@@ -65,44 +68,6 @@ function readKimiToken(home: string): string | null {
     // fail-open
   }
   return null
-}
-
-function pctOf(detail: unknown): number | null {
-  if (!detail || typeof detail !== 'object') return null
-  const { limit, used } = detail as Record<string, unknown>
-  const l = Number(limit)
-  const u = Number(used)
-  return l > 0 && Number.isFinite(u) ? (u / l) * 100 : null
-}
-
-function parseKimiUsages(data: unknown): Quota | null {
-  if (!data || typeof data !== 'object') return null
-  const root = data as Record<string, unknown>
-  let five: number | null = null
-  let seven: number | null = null
-
-  // 新格式：usages.limit_5h.used_ratio / usages.limit_7d.used_ratio
-  const usages = root.usages as Record<string, Record<string, unknown>> | undefined
-  if (typeof usages?.limit_5h?.used_ratio === 'number') five = usages.limit_5h.used_ratio * 100
-  if (typeof usages?.limit_7d?.used_ratio === 'number') seven = usages.limit_7d.used_ratio * 100
-
-  // 旧格式：limits[] 里 window 300 分钟的是 5h 桶；usage 是 7d 总量
-  if (five === null && Array.isArray(root.limits)) {
-    for (const entry of root.limits) {
-      const win = (entry as Record<string, unknown>)?.window as Record<string, unknown> | undefined
-      if (win?.duration === 300 && win?.timeUnit === 'TIME_UNIT_MINUTE') {
-        five = pctOf((entry as Record<string, unknown>).detail)
-        break
-      }
-    }
-  }
-  if (seven === null) seven = pctOf(root.usage)
-
-  if (five === null && seven === null) return null
-  return {
-    fiveHour: five === null ? undefined : `${Math.round(five)}%`,
-    weekly: seven === null ? undefined : `${Math.round(seven)}%`
-  }
 }
 
 async function refreshKimiQuota(): Promise<void> {
@@ -152,7 +117,7 @@ function listSessionFiles(dir: string): string[] {
 }
 
 /** 从单个 session 文件尾部往前找最后一条标准限额快照（limit_id === "codex"，Spark 等独立池不算） */
-function readCodexRateLimits(path: string): { fiveHour?: number; weekly?: number } | null {
+function readCodexRateLimits(path: string): { fiveHour?: number; weekly?: number; fiveHourResetsAt?: number; weeklyResetsAt?: number } | null {
   const lines = readFileSync(path, 'utf-8').split('\n')
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i]
@@ -164,14 +129,22 @@ function readCodexRateLimits(path: string): { fiveHour?: number; weekly?: number
       if (!rl || rl.limit_id !== 'codex') continue
       let fiveHour: number | undefined
       let weekly: number | undefined
+      let fiveHourResetsAt: number | undefined
+      let weeklyResetsAt: number | undefined
       for (const key of ['primary', 'secondary'] as const) {
         const bucket = rl[key] as Record<string, unknown> | null | undefined
         if (!bucket || typeof bucket.used_percent !== 'number') continue
         // 按 window_minutes 分桶，而不是固定 primary→5h（free plan 实测 primary 是 7 天窗口）
-        if ((Number(bucket.window_minutes) || 0) < 1440) fiveHour = bucket.used_percent
-        else weekly = bucket.used_percent
+        const reset = typeof bucket.resets_at === 'number' ? bucket.resets_at : undefined
+        if ((Number(bucket.window_minutes) || 0) < 1440) {
+          fiveHour = bucket.used_percent
+          fiveHourResetsAt = reset
+        } else {
+          weekly = bucket.used_percent
+          weeklyResetsAt = reset
+        }
       }
-      if (fiveHour !== undefined || weekly !== undefined) return { fiveHour, weekly }
+      if (fiveHour !== undefined || weekly !== undefined) return { fiveHour, weekly, fiveHourResetsAt, weeklyResetsAt }
     } catch {
       // 单行解析失败继续往前找
     }
@@ -190,7 +163,9 @@ function refreshCodexQuota(): void {
         fetchedAt: Date.now(),
         quota: {
           fiveHour: limits.fiveHour === undefined ? undefined : `${Math.round(limits.fiveHour)}%`,
-          weekly: limits.weekly === undefined ? undefined : `${Math.round(limits.weekly)}%`
+          weekly: limits.weekly === undefined ? undefined : `${Math.round(limits.weekly)}%`,
+          fiveHourResetsAt: limits.fiveHourResetsAt,
+          weeklyResetsAt: limits.weeklyResetsAt
         }
       }
       return

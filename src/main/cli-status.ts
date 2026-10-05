@@ -20,19 +20,21 @@ export function parseCliStatus(screen: string): CliStatus | null {
   // "[design-agent](main) | Total: 405k | Cost: $0.46 | 5h: 3% | 7d: 34% | Model: kimi-code/k3/high/auto | Ready"
   const richTotal = lastMatch(screen, /\bTotal:\s*([\d.]+\w*)/gi)
   const richCost = lastMatch(screen, /\bCost:\s*(\$[\d.]+)/gi)
-  const richFive = lastMatch(screen, /\b5h:\s*(\d+(?:\.\d+)?%)/gi)
-  const richWeekly = lastMatch(screen, /\b7d:\s*(\d+(?:\.\d+)?%)/gi)
-  const richModel = lastMatch(screen, /\bModel:\s*([\w./-]+)/gi)
+  const richFive = lastMatch(screen, /\b5h:\s*(\d+(?:\.\d+)?%(?:\s*\([\d dhms]+\))?)/gi)
+  const richWeekly = lastMatch(screen, /\b7d:\s*(\d+(?:\.\d+)?%(?:\s*\([\d dhms]+\))?)/gi)
+  const richModel = lastMatch(screen, /\bModel:[ \t]*([^|·•\r\n]+)/gi)
+  const richModelText = richModel?.[1].trim().replace(/[ \t]+/g, '/')
 
   // Kimi Code 旧版：状态行 "agent (K3 ●) ..."，右下角 "context: 13.2% (34.7k/262.1k)"
   const kimiContext = lastMatch(screen, /context:\s*(\d+(?:\.\d+)?%\s*\([^)]+\))/gi)
-  const kimiModel = lastMatch(screen, /agent \(([\w.@-]+)/g)
+  const kimiModel = lastMatch(screen, /\bagent[ \t]+\(([^()\r\n]+)\)/g)
+  const kimiThinking = kimiModel?.[1].match(/[ \t]+([●○])[ \t]*$/)?.[1]
+  const kimiModelText = kimiModel?.[1].replace(/[ \t]+[●○][ \t]*$/, '').trim().replace(/[ \t]+/g, ' ')
 
-  if (richTotal || richCost || richFive || richWeekly || kimiContext || kimiModel) {
-    const rich = richTotal || richCost || richFive || richWeekly
+  if (richModel || richTotal || richCost || richFive || richWeekly || kimiContext || kimiModel) {
     return {
-      source: 'kimi',
-      model: rich ? (richModel?.[1] ?? kimiModel?.[1]) : kimiModel?.[1],
+      source: richModelText?.startsWith('gpt-') || richModelText?.startsWith('codex') ? 'codex' : kimiModel || richModelText?.match(/^(kimi|K\d)/i) ? 'kimi' : undefined,
+      model: richModelText || (kimiModelText ? `${kimiModelText}${kimiThinking ? `/thinking:${kimiThinking === '●' ? 'on' : 'off'}` : ''}` : undefined),
       context: kimiContext?.[1],
       fiveHour: richFive?.[1],
       weekly: richWeekly?.[1],
@@ -44,12 +46,12 @@ export function parseCliStatus(screen: string): CliStatus | null {
   // Codex
   const codexLine = screen.split('\n').reverse().find((line) => /Context\s+\d+%\s+used/i.test(line))
   if (codexLine) {
-    const model = codexLine.split('·')[0]?.trim().split(/\s+/)[0]
+    const model = codexLine.split(/[·•|]/)[0]?.trim().replace(/[ \t]+/g, ' ')
     const context = codexLine.match(/Context\s+(\d+%)\s+used/i)?.[1]
     const weekly = codexLine.match(/weekly\s+(\d+%)\s+left/i)?.[1]
     return {
       source: 'codex',
-      model: model && /^[\w.-]{2,30}$/.test(model) ? model : undefined,
+      model: model && /^[\w.-]{2,80}(?: [\w.-]+)*$/.test(model) ? model.replace(/ /g, '/') : undefined,
       context: context ? `${context} used` : undefined,
       weekly: weekly ? `${weekly} left` : undefined
     }

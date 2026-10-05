@@ -26,6 +26,7 @@ import { getCodexQuota, getKimiQuota, startQuotaPolling } from './quota'
 import { isAllowedRendererUrl } from './security-utils'
 import { supportsImageClipboardPaste } from '../shared/image-paste'
 import { prepareDroppedFiles } from './file-drop'
+import { formatQuotaReset, readGitChanges, readSystemMetrics } from './status-metrics'
 import type {
   CliStatus,
   CreateTerminalInput,
@@ -247,32 +248,45 @@ function spawnTerminal(project: ProjectDefinition, terminal: TerminalDefinition,
 }
 
 /** 每 3 秒抓取各终端可见屏幕，解析 CLI 状态（模型、用量），有变化才推送（只读抓取，不落盘） */
-function pollCliStatuses(): void {
-  let changed = false
-  for (const project of workspace.projects) {
-    for (const terminal of project.terminals) {
-      const previous = cliStatuses.get(terminal.id)
-      let next: CliStatus | null = null
-      if (terminal.tmuxSessionName && sessions.has(terminal.id)) {
-        const screen = capturePaneContent(terminal.tmuxSessionName)
-        if (screen) next = parseCliStatus(screen)
-      }
-      // 5h/7d 额度走主进程直读（kimi 云端 /usages、codex 本地 session 文件），
-      // 比屏幕抓取更可靠，且旧版 CLI 状态行没有这两个字段时也能显示
-      if (next?.source) {
-        const quota = next.source === 'kimi' ? getKimiQuota() : getCodexQuota()
-        if (quota?.fiveHour) next.fiveHour = quota.fiveHour
-        if (quota?.weekly) next.weekly = quota.weekly
-      }
-      if (JSON.stringify(previous ?? null) !== JSON.stringify(next)) {
-        if (next) cliStatuses.set(terminal.id, next)
-        else cliStatuses.delete(terminal.id)
-        changed = true
+let statusPolling = false
+async function pollCliStatuses(): Promise<void> {
+  if (statusPolling) return
+  statusPolling = true
+  try {
+    const active = workspace.activeTerminalId ? findTerminal(workspace.activeTerminalId) : null
+    const [metrics, gitChanges] = await Promise.all([
+      readSystemMetrics(),
+      active?.project.gitBranch ? readGitChanges(active.project.path) : Promise.resolve(undefined)
+    ])
+    let changed = false
+    for (const project of workspace.projects) {
+      for (const terminal of project.terminals) {
+        const previous = cliStatuses.get(terminal.id)
+        let next: CliStatus | null = null
+        if (terminal.tmuxSessionName && sessions.has(terminal.id)) {
+          const screen = capturePaneContent(terminal.tmuxSessionName)
+          if (screen) next = parseCliStatus(screen)
+        }
+        // 5h/7d 额度走主进程直读（kimi 云端 /usages、codex 本地 session 文件），
+        // 比屏幕抓取更可靠，且旧版 CLI 状态行没有这两个字段时也能显示
+        if (next?.source) {
+          const quota = next.source === 'kimi' ? getKimiQuota() : getCodexQuota()
+          if (quota?.fiveHour) next.fiveHour = quota.fiveHour + (quota.fiveHourResetsAt ? formatQuotaReset(quota.fiveHourResetsAt) : next.fiveHour?.match(/\s*\([\d dhms]+\)/)?.[0] ?? '')
+          if (quota?.weekly) next.weekly = quota.weekly + (quota.weeklyResetsAt ? formatQuotaReset(quota.weeklyResetsAt) : next.weekly?.match(/\s*\([\d dhms]+\)/)?.[0] ?? '')
+        }
+        if (terminal.id === workspace.activeTerminalId && terminal.id === active?.terminal.id) next = { ...next, ...metrics, gitChanges }
+        if (JSON.stringify(previous ?? null) !== JSON.stringify(next)) {
+          if (next) cliStatuses.set(terminal.id, next)
+          else cliStatuses.delete(terminal.id)
+          changed = true
+        }
       }
     }
-  }
-  if (changed) {
-    mainWindow?.webContents.send('terminal:cli-status', Object.fromEntries(cliStatuses))
+    if (changed) {
+      mainWindow?.webContents.send('terminal:cli-status', Object.fromEntries(cliStatuses))
+    }
+  } finally {
+    statusPolling = false
   }
 }
 
