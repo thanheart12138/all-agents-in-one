@@ -12,6 +12,7 @@
 
 ## 已完成
 
+- 公开文档中的两处真实测试项目名替换为 `example-project`；文本检索与 `git diff --check` 通过。
 - README 加入用户提供的真实工作台截图（`pic/workspace.png`），整理中英文功能说明，更新 v0.2.9 本地产物信息并移除过时的构建提示；图片引用、原文件一致性及文档格式检查通过。
 - v0.2.9 本地 arm64 DMG 打包与产物校验；版本文件同步，37 项测试、类型检查、构建、`hdiutil verify`、包内版本与 5 个构建文件一致性核对通过。
 - Model 解析保留 Codex 原生配置与 Codex／Kimi 富状态行中的完整配置，统一用 `/` 分隔（如 `gpt-6.1-sol/low/fast`），保留模型名大小写；按 Kimi 官方状态栏的 `●`／`○` 显示 `/thinking:on`／`thinking:off`，模式缺失时不推断。解析回归、类型检查和构建通过，真实窗口显示待复测。
@@ -121,9 +122,9 @@
 - 2026-09-22：`npm run typecheck` 与 `npm run dist` 通过，重新生成 arm64 DMG 和 ZIP（v0.1.0）。
 - 2026-09-22：iTerm2 主显示层改造后 typecheck 与 build 通过；tmux 探测全生命周期实测（zsh→Ready、sleep→Running、exit→pane_dead、会话删除→null，修复 display-message 对不存在会话静默返回空输出的陷阱）；开发窗口视觉检查通过（kimi 会话正确显示 Running、codex 显示 Ready）。
 - 2026-09-23：回退 iTerm 窗口管理方案，恢复内嵌 xterm 为主显示层；iTerm 主题解析器实测通过（含自闭合 `<dict/>`、亮/暗双配色取暗色变体）；打包后经 `open` 启动（GUI 无 LANG 环境）截图验证：中文正常渲染、Catppuccin 配色与 JetBrainsMonoNF 字体生效。typecheck 与 build 通过。
-- 2026-09-23：分支徽标与 CLI 状态栏在 iTerm 主题版基础上重新合入，typecheck 与 build 通过；打包后截图验证：`wechat-gold-sentence`（git 仓库）正确显示 `main` 徽标，状态栏 `[项目名](main) | CLI | tmux | 最近输入 | Ready` 渲染正常，终端中文与配色保持正常。
+- 2026-09-23：分支徽标与 CLI 状态栏在 iTerm 主题版基础上重新合入，typecheck 与 build 通过；打包后截图验证：`example-project`（git 仓库）正确显示 `main` 徽标，状态栏 `[项目名](main) | CLI | tmux | 最近输入 | Ready` 渲染正常，终端中文与配色保持正常。
 - 2026-09-23：CLI 状态抓取解析器用 kimi/codex 真实画面实测通过（K3 + ctx 13.2%、gpt-5.6-sol + Context 0% used + weekly 0% left、普通 shell 与空屏均返回 null）；打包后截图确认状态栏显示 `Model: K3 | ctx: 0.0% (0/262.1k)`。
-- 2026-09-23：5h/7d 额度直读上线（quota.ts）：Kimi `/usages` 接口实测返回 5h=25%、7d=68%（与 CLI 内 `/usage` 的 75%/32% left 互为补数，一致）；Codex 本地 session 文件实测解析出 weekly=100%；富状态行解析器单测通过（Total: 405k / Cost: $0.46 / 5h: 3% / 7d: 34% / Model: kimi-code/k3/high/auto）。typecheck、build、pack 通过；打包后截图确认状态栏显示 `[wechat-gold-sentence](main) | CLI: kimi | 5h: 25% | 7d: 68% | Model: K3 | ctx: 0.0% (0/262.1k) | …`。注意：`open` 可能激活 /Applications 下的旧安装包，验证时须用 `ps` 确认运行的是 release 目录新构建。
+- 2026-09-23：5h/7d 额度直读上线（quota.ts）：Kimi `/usages` 接口实测返回 5h=25%、7d=68%（与 CLI 内 `/usage` 的 75%/32% left 互为补数，一致）；Codex 本地 session 文件实测解析出 weekly=100%；富状态行解析器单测通过（Total: 405k / Cost: $0.46 / 5h: 3% / 7d: 34% / Model: kimi-code/k3/high/auto）。typecheck、build、pack 通过；打包后截图确认状态栏显示 `[example-project](main) | CLI: kimi | 5h: 25% | 7d: 68% | Model: K3 | ctx: 0.0% (0/262.1k) | …`。注意：`open` 可能激活 /Applications 下的旧安装包，验证时须用 `ps` 确认运行的是 release 目录新构建。
 - 2026-09-23：v0.2.1 修复长输出无法向上回看——根因是 tmux.conf `mouse off`，终端架构（node-pty attach tmux）下滚动历史由 tmux 持有。改为 `mouse on` 并给 copy-mode/copy-mode-vi 的 MouseDragEnd1Pane 挂 copy-pipe-and-cancel pbcopy（拖选直接进 macOS 剪贴板）。启动时 source-file 热加载已验证：运行中 server `show -g mouse` = on、root 表 WheelUpPane 默认绑定在（kimi 等非 alt-screen 窗格滚轮向上即进入 copy-mode -e 翻历史，滚到底自动退出；alt-screen 应用则转发鼠标事件给应用）。typecheck、build、dist 通过；/Applications 已装 0.2.1，截图确认会话与状态栏正常。
 - 2026-09-23：v0.2.2 修复拼音输入遮挡感——复现验证（合成 CompositionEvent + 真实 DOM 坐标比对）xterm 6.0 组合框定位精确到光标（x=172px=cursorX×cellWidth、y=460px=cursorY×cellHeight），问题是默认样式为不透明纯黑块；改为跟随终端主题底色 + 虚线下划线（`.composition-view` 用 `--terminal-bg/--terminal-fg` CSS 变量，TerminalView 按 iTerm 主题注入），视觉等同 iTerm 内联标记文本。另实测「选中复制」链路：node-pty 注入 SGR 鼠标拖选字节 → tmux copy-mode 选择 → 松开触发 copy-pipe-and-cancel → pbpaste 拿到选中内容，端到端通过（松开高亮消失是 and-cancel 预期行为，内容已进剪贴板，直接 Cmd+V）。git 仓库已建（github.com:thanheart12138/all-agents-in-one），v0.2.2 已提交推送。
 - 2026-09-24：侧栏滚动修复后 `npm run typecheck` 与 `npm run build` 通过；隔离 Electron 窗口加载实际 CSS，30 个项目时列表 `clientHeight=410`、`scrollHeight=810`、设置滚动后 `scrollTop=400.5`，底部栏仍在视口内。复制断行报告中，用户贴出的命令保留了两处原有的 `\` 续行，而屏幕上的 `docker exec` 自动折行已在复制结果中合并；未改复制逻辑。
