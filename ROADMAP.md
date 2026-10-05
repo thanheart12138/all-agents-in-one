@@ -75,10 +75,11 @@
 
 ## 阻塞
 
-- 2026-10-05：重试后 `git add` 成功，本地暂存权限已恢复；远端检查仍无法连接 GitHub SSH 端口（Operation not permitted），推送尚未完成。本地 DMG 和文档更新已完成。
+- 无。2026-10-05 重试后，本次 Git 提交与推送限制已解除，功能提交 `f4b0724` 已推送到 `origin/main`。
 
 ## 最近验证
 
+- 2026-10-05：v0.2.9 功能与 README 截图提交为 `f4b0724`，`git push origin main` 成功，远端回执为 `a78e4de..f4b0724 main -> main`；推送后工作区干净。本次仅推送源码，未创建 tag 或公开发布安装包。
 - 2026-10-05：按用户要求重试 Git 操作，包含 README 截图和 v0.2.9 改动的 `git add` 成功；`git ls-remote --heads origin main` 仍因 GitHub SSH 端口连接被拒绝而失败。
 - 2026-10-05：按用户提供的真实截图更新 README，图片原样复制到 `pic/workspace.png`，核对相对引用有效、PNG 尺寸及字节与原图一致；中英文功能说明与 v0.2.9 产物路径对应，`git diff --check` 通过。截图可见 Git 变更、`GPT-6.1-Sol/low/fast`、Codex 周额度倒计时、上下文、CPU／内存与网络指标；不据此宣称 Kimi 实测或终端全生命周期回归通过。提交与推送因环境权限限制未完成。
 - 2026-10-05：v0.2.9 本地 arm64 DMG 打包成功，37 项测试、typecheck、dist（含 build）、`hdiutil verify` 通过；包内版本为 0.2.9、主程序为 arm64，asar 内 5 个构建文件与本次 `out/` 完全一致。DMG SHA-256：`2e7840d897a6ca025a5bcac13601231973d71c5d863bcd83fb8e36a881d8a838`。未安装或创建公开发布；远端检查被环境阻止连接 GitHub SSH 端口。
